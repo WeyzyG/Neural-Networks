@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Исследование данных Titanic</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background-color: #f9f9f9;
+      color: #222;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    h1 {
+      color: #005f99;
+    }
+    section {
+      max-width: 900px;
+      margin: 0 auto 40px auto;
+      background: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    canvas {
+      max-width: 100%;
+      height: 400px;
+      margin-top: 25px;
+    }
+    footer {
+      text-align: center;
+      color: #888;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Исследование датасета Titanic</h1>
+    <p>Анализ выживаемости пассажиров в зависимости от класса, пола и возраста</p>
+  </header>
+
+  <section id="overview">
+    <h2>Обзор данных</h2>
+    <p>Датасет Titanic содержит данные о пассажирах и их выживании во время трагедии. Основные параметры: класс пассажира (1,2,3), пол, возраст, билет и выживание.</p>
+  </section>
+
+  <section id="survival_by_class">
+    <h2>Выживаемость по классам</h2>
+    <p>График показывает долю пассажиров, выживших в зависимости от класса билета.</p>
+    <canvas id="survivalClassChart"></canvas>
+  </section>
+
+  <section id="survival_by_gender">
+    <h2>Выживаемость по полу</h2>
+    <p>График показывает выживаемость мужчин и женщин.</p>
+    <canvas id="survivalGenderChart"></canvas>
+  </section>
+
+  <section id="age_distribution">
+    <h2>Распределение возрастов</h2>
+    <p>Гистограмма возрастов пассажиров для понимания возрастных групп.</p>
+    <canvas id="ageHistogram"></canvas>
+  </section>
+
+  <footer>
+    <p>© 2025 Исследование датасета Titanic</p>
+  </footer>
+
+  <script>
+    const survivalClassData = {
+      labels: ['1 класс', '2 класс', '3 класс'],
+      datasets: [{
+        label: 'Доля выживших (%)',
+        data: [62, 47, 24],
+        backgroundColor: ['#4CAF50', '#2196F3', '#F44336']
+      }]
+    };
+
+    const survivalClassConfig = {
+      type: 'bar',
+      data: survivalClassData,
+      options: {
+        scales: { y: { beginAtZero: true, max: 100, ticks: { stepSize: 20 } } },
+        plugins: { legend: { display: true } }
+      }
+    };
+
+    const survivalGenderData = {
+      labels: ['Женщины', 'Мужчины'],
+      datasets: [{
+        label: 'Доля выживших (%)',
+        data: [74, 20],
+        backgroundColor: ['#FF99CC', '#6699CC']
+      }]
+    };
+
+    const survivalGenderConfig = {
+      type: 'bar',
+      data: survivalGenderData,
+      options: {
+        scales: { y: { beginAtZero: true, max: 100, ticks: { stepSize: 20 } } },
+        plugins: { legend: { display: true } }
+      }
+    };
+
+    const ageHistogramData = {
+      labels: ['0-10', '10-20', '20-30', '30-40', '40-50', '50-60', '60-70', '70+'],
+      datasets: [{
+        label: 'Количество пассажиров',
+        data: [60, 100, 270, 150, 80, 50, 10, 5],
+        backgroundColor: '#007BFF'
+      }]
+    };
+
+    const ageHistogramConfig = {
+      type: 'bar',
+      data: ageHistogramData,
+      options: {
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 50 } } },
+        plugins: { legend: { display: true } }
+      }
+    };
+
+    new Chart(document.getElementById('survivalClassChart'), survivalClassConfig);
+    new Chart(document.getElementById('survivalGenderChart'), survivalGenderConfig);
+    new Chart(document.getElementById('ageHistogram'), ageHistogramConfig);
+  </script>
+</body>
+</html>
