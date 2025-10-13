@@ -1,126 +1,168 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>MNIST CNN (Client‑Side) + AE Denoiser</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
+  <meta charset="utf-8" />
+  <title>MNIST Denoiser — Minimal White UI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- TF.js / TFVis (как было) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1/dist/tfjs-vis.umd.min.js"></script>
+
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; }
-    header { padding: 12px 16px; border-bottom: 1px solid #eee; }
-    .layout { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; padding: 16px; }
-    .panel { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px; margin-bottom: 12px; }
-    .panel h3 { margin: 0 0 8px; font-size: 16px; }
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .nowrap { white-space: nowrap; }
-    #previewStrip { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    #previewStrip canvas { border: 1px solid #ddd; image-rendering: pixelated; }
-    #previewLabels { display: flex; gap: 18px; margin-top: 8px; font-weight: 600; }
-    .muted { color: #666; }
-    #textLogs { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; line-height: 1.35; }
-    #textLogs .ok { color: #2e7d32; }
-    #textLogs .err { color: #c0392b; }
-    #textLogs .warn { color: #b26a00; }
-    #textLogs .sec { color: #0d47a1; font-weight: 600; }
+    :root {
+      --bg: #ffffff;
+      --fg: #0f172a;
+      --muted: #64748b;
+      --panel: #fafafa;
+      --border: #e5e7eb;
+      --accent: #2563eb;
+      --accent-weak: #eff6ff;
+      --ok: #16a34a;
+      --warn: #f59e0b;
+      --err: #dc2626;
+      --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 12px rgba(0,0,0,.04);
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .title { font-size:20px; letter-spacing:.2px; }
+    .grid {
+      display:grid;
+      grid-template-columns: 320px 1fr 320px;
+      gap: 16px;
+    }
+    @media (max-width: 1200px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    .panel h3 {
+      margin: 0 0 10px 0;
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing:.2px;
+    }
+    .controls .row { display:flex; gap:8px; margin-bottom:10px; }
+    .controls label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+    input[type="file"] {
+      width:100%;
+      padding: 8px;
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      background:#fff;
+    }
+    button {
+      appearance:none;
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--fg);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor:pointer;
+      transition: .15s ease;
+    }
+    button.primary {
+      border-color: transparent;
+      background: var(--accent);
+      color: #fff;
+    }
+    button.ghost {
+      background: var(--accent-weak);
+      color: var(--accent);
+      border-color: transparent;
+    }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .section { margin-top: 16px; border-top:1px solid var(--border); padding-top:12px; }
+    .badges { display:flex; gap:6px; flex-wrap: wrap; }
+    .badge { font-size:12px; background:#fff; border:1px solid var(--border); border-radius: 999px; padding:4px 8px; }
+    .logs { max-height: 220px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px; }
+    .log-line { white-space: pre-wrap; margin: 0; }
+    .log-ok { color: var(--ok); }
+    .log-warn { color: var(--warn); }
+    .log-err { color: var(--err); }
+    .preview-grid {
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow: var(--shadow);
+      padding:12px;
+    }
+    .card h4 { margin: 0 0 8px 0; font-size:14px; }
+    .triptych {
+      display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;
+      align-items:center;
+    }
+    .tile {
+      display:flex; flex-direction:column; gap:6px; align-items:center;
+    }
+    .tile canvas {
+      width: 100%;
+      height: auto;
+      max-width: 140px;
+      border:1px solid var(--border);
+      border-radius: 8px;
+      background:#fff;
+    }
+    .tile label { font-size:12px; color:var(--muted); }
+    .metrics { font-size:12px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
+    .sticky { position: sticky; top: 16px; }
+    .muted { color: var(--muted); }
+    details > summary { cursor:pointer; list-style:none; }
+    details > summary::-webkit-details-marker { display:none; }
+    .kv { display:grid; grid-template-columns: 1fr auto; gap:8px; font-size:13px; }
+    .sep { height:1px; background:var(--border); margin:8px 0; }
   </style>
 </head>
 <body>
-  <header>
-    <h2>MNIST CNN Training (Client‑Side)</h2>
-  </header>
+  <div class="wrap">
+    <header>
+      <div class="title">MNIST Denoiser — White UI</div>
+      <div class="badges">
+        <span class="badge" id="dataBadge">Data: 0 / 0</span>
+        <span class="badge" id="modelBadge">Model: none</span>
+        <button id="toggleVisorBtn" class="ghost">TFVis</button>
+      </div>
+    </header>
 
-  <div class="layout">
-    <div>
-      <div class="panel">
-        <h3>Controls</h3>
+    <div class="grid">
+      <!-- Левая: Управление -->
+      <aside class="panel controls sticky">
+        <h3>Данные</h3>
+        <label>Train CSV</label>
+        <input type="file" id="trainFile" accept=".csv" />
+        <label>Test CSV</label>
+        <input type="file" id="testFile" accept=".csv" />
         <div class="row">
-          <label>Upload Train CSV:</label>
-          <input id="trainCsv" type="file" accept=".csv,text/csv" />
-          <label class="nowrap">Upload Test CSV:</label>
-          <input id="testCsv" type="file" accept=".csv,text/csv" />
-          <button id="btnLoad">Load Data</button>
-          <button id="btnVisor">Toggle Visor</button>
+          <button id="loadDataBtn" class="primary">Загрузить</button>
+          <button id="resetBtn">Сброс</button>
         </div>
-        <div class="row">
-          <button id="btnTrain">Train</button>
-          <button id="btnEval">Evaluate</button>
-          <button id="btnTest5">Test 5 Random</button>
-          <button id="btnSave">Save Model (Download)</button>
-          <button id="btnReset">Reset</button>
-        </div>
-      </div>
 
-      <div class="panel">
-        <h3>Load Model (From Files)</h3>
-        <div class="row">
-          <label>Load Model JSON:</label>
-          <input id="modelJson" type="file" accept=".json,application/json" />
-          <label>Load Model Weights:</label>
-          <input id="modelBin" type="file" accept=".bin,application/octet-stream" />
-          <button id="btnLoadModel">Load Model</button>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>Denoiser Settings (Step 1)</h3>
-        <div class="row">
-          <label>Noise:</label>
-          <select id="noiseMode">
-            <option value="none">none</option>
-            <option value="gaussian" selected>gaussian</option>
-            <option value="sp">salt&pepper</option>
-          </select>
-          <label>Std:</label>
-          <input id="noiseStd" type="number" step="0.05" value="0.5" />
-          <label>Prob:</label>
-          <input id="noiseProb" type="number" step="0.01" value="0.10" />
-        </div>
-      </div>
-
-      <div class="panel">
-        <h3>Autoencoder (Steps 2–4)</h3>
-        <div class="row">
-          <button id="btnBuildAE">Build AE</button>
-          <button id="btnTrainAE">Train AE</button>
-          <button id="btnEvalAE">Eval AE</button>
-          <button id="btnTest5AE">Test 5 Random (Denoise)</button>
-          <button id="btnSaveAE">Save AE</button>
-        </div>
-        <div class="muted">Train AE to map noisy → clean; preview shows top noisy row and bottom denoised row.</div>
-      </div>
-
-      <div class="panel">
-        <h3>Data Status</h3>
-        <div id="dataStatus" class="muted">No data loaded</div>
-      </div>
-
-      <div class="panel">
-        <h3>Training Logs</h3>
-        <div id="textLogs"></div>
-      </div>
-
-      <div class="panel">
-        <h3>Random 5 Preview</h3>
-        <div id="previewStrip"></div>
-        <div id="previewLabels"></div>
-      </div>
-
-      <div class="panel">
-        <h3>Model Info</h3>
-        <div id="modelInfo" class="muted">No model loaded</div>
-      </div>
-    </div>
-
-    <div>
-      <div class="panel">
-        <h3>Training Logs (Visor)</h3>
-        <div class="muted">Open/close with “Toggle Visor”</div>
-      </div>
-    </div>
-  </div>
-
-  <script type="module" src="./data-loader.js" defer></script>
-  <script type="module" src="./app.js" defer></script>
-</body>
-</html>
+        <div class="section">
+          <h3>Модель</h3>
+          <div class="row">
+            <button id="trainBtn" class="primary">Обучить</button>
+            <button id="evaluateBtn">Оценить</button>
+          </div>
+          <div class="row">
+            <button id="testFiveBtn">Denoise ×5</button>
+          </div>
+          <div class="row">
+            <button id="saveModelBtn">Скачать</button>
+          </div>
+          <label class="muted">Загрузить модель</label>
+          <input type="file" id="modelJsonFile" accept=".json" />
+          <input type="file" id="modelWeightsFile" accept=".bin" />
+          <div class="row">
+            <button id="
