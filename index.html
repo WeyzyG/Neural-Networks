@@ -1,72 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>MNIST Denoising Autoencoder with TensorFlow.js</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Загрузка и Деноизинг MNIST в TensorFlow.js</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .container { display: flex; gap: 20px; }
-        .left-column, .right-column { flex: 1; }
-        .preview-row { display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
-        .preview-item { text-align: center; }
-        canvas { border: 1px solid #ccc; image-rendering: pixelated; }
-        .correct { color: green; font-weight: bold; }
-        .wrong { color: red; font-weight: bold; }
-        button { margin: 5px; padding: 8px 12px; }
-        .file-inputs { margin: 10px 0; }
-        .status { background: #f0f0f0; padding: 10px; margin: 10px 0; }
-        .preview-group { margin: 10px; padding: 10px; border: 1px solid #ddd; }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #ffffff;
+            color: #333333;
+        }
+        h1, h2, h3 {
+            font-weight: 600;
+            color: #222222;
+        }
+        .file-inputs {
+            margin-bottom: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+        }
+        label {
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+        input[type="file"] {
+            margin-left: 8px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 10px 15px;
+            font-size: 1rem;
+            border-radius: 5px;
+            transition: background-color 0.2s ease;
+        }
+        button:hover {
+            background-color: #e6e6e6;
+        }
+        .container {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .left-column, .right-column {
+            flex: 1 1 400px;
+        }
+        #controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px 15px;
+            margin-bottom: 20px;
+        }
+        #model-loaders {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: #fefefe;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgb(0 0 0 / 0.05);
+        }
+        .preview-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            image-rendering: pixelated;
+            border-radius: 4px;
+            background-color: #fff;
+        }
+        #trainingLogs {
+            min-height: 150px;
+            background: #fafafa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #555;
+        }
     </style>
 </head>
 <body>
-    <h1>MNIST Denoising Autoencoder (Client-Side)</h1>
-    
-    <div class="file-inputs">
-        <label>Upload Train CSV: <input type="file" id="trainFile" accept=".csv"></label>
-        <label>Upload Test CSV: <input type="file" id="testFile" accept=".csv"></label>
-        <button id="loadDataBtn">Load Data</button>
-    </div>
+    <h1>MNIST: Загрузка данных и обучение денойзера</h1>
+
+    <section class="file-inputs" aria-label="Загрузка файлов данных">
+        <label for="trainFile">Обучающий CSV:
+            <input type="file" id="trainFile" accept=".csv" />
+        </label>
+        <label for="testFile">Тестовый CSV:
+            <input type="file" id="testFile" accept=".csv" />
+        </label>
+        <button id="loadDataBtn" aria-label="Загрузить данные">Загрузить данные</button>
+    </section>
 
     <div class="container">
-        <div class="left-column">
-            <h2>Controls</h2>
-            <div>
-                <button id="trainBtn">Train Denoiser</button>
-                <button id="evaluateBtn">Evaluate</button>
-                <button id="testFiveBtn">Test Denoising (5 Random)</button>
-                <button id="saveModelBtn">Save Model</button>
-                <button id="resetBtn">Reset</button>
-                <button id="toggleVisorBtn">Toggle Visor</button>
-            </div>
-            
-            <div>
-                <label>Load Model JSON: <input type="file" id="modelJsonFile" accept=".json"></label>
-                <label>Load Model Weights: <input type="file" id="modelWeightsFile" accept=".bin"></label>
-                <button id="loadModelBtn">Load Model</button>
-            </div>
-
-            <div id="dataStatus" class="status">
-                <h3>Data Status</h3>
-                <p>No data loaded</p>
-            </div>
-
-            <div id="modelInfo" class="status">
-                <h3>Model Info</h3>
-                <p>No model loaded</p>
-            </div>
-        </div>
-
-        <div class="right-column">
-            <h2>Training Logs</h2>
-            <div id="trainingLogs"></div>
-            
-            <h2>Denoising Preview</h2>
-            <div id="previewContainer" class="preview-row"></div>
-        </div>
-    </div>
-
-    <script src="data-loader.js"></script>
-    <script src="app.js"></script>
-</body>
-</html>
+        <section class="left-column" aria-label="Управление и состояние">
+            <h2>Управляющие кнопки</h2>
+            <div id="controls">
+                <button id="trainBtn" title="Начать обучение денойзера">Обучить денойзеручить денойзер
