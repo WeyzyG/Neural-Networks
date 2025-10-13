@@ -2,144 +2,67 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <title>MNIST Denoiser — Minimal White UI</title>
+  <title>MNIST Autoencoder Denoiser — Белый интерфейс</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- TF.js / TFVis (как было) -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.5.1/dist/tfjs-vis.umd.min.js"></script>
-
   <style>
     :root {
-      --bg: #ffffff;
-      --fg: #0f172a;
-      --muted: #64748b;
-      --panel: #fafafa;
-      --border: #e5e7eb;
-      --accent: #2563eb;
-      --accent-weak: #eff6ff;
-      --ok: #16a34a;
-      --warn: #f59e0b;
-      --err: #dc2626;
-      --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 12px rgba(0,0,0,.04);
-      --radius: 12px;
+      --bg:#fff; --fg:#0f172a; --muted:#64748b; --panel:#fafafa; --border:#e5e7eb;
+      --accent:#2563eb; --accent-weak:#eff6ff; --ok:#16a34a; --warn:#f59e0b; --err:#dc2626;
+      --shadow:0 1px 2px rgba(0,0,0,.05), 0 6px 12px rgba(0,0,0,.04); --radius:12px;
     }
-    * { box-sizing: border-box; }
-    html, body { margin:0; padding:0; background:var(--bg); color:var(--fg); font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif; }
-    .wrap { max-width: 1400px; margin: 0 auto; padding: 24px; }
-    header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
-    .title { font-size:20px; letter-spacing:.2px; }
-    .grid {
-      display:grid;
-      grid-template-columns: 320px 1fr 320px;
-      gap: 16px;
-    }
-    @media (max-width: 1200px) {
-      .grid { grid-template-columns: 1fr; }
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      padding: 16px;
-    }
-    .panel h3 {
-      margin: 0 0 10px 0;
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing:.2px;
-    }
-    .controls .row { display:flex; gap:8px; margin-bottom:10px; }
-    .controls label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
-    input[type="file"] {
-      width:100%;
-      padding: 8px;
-      border: 1px dashed var(--border);
-      border-radius: 10px;
-      background:#fff;
-    }
-    button {
-      appearance:none;
-      border:1px solid var(--border);
-      background:#fff;
-      color:var(--fg);
-      padding: 8px 12px;
-      border-radius: 10px;
-      cursor:pointer;
-      transition: .15s ease;
-    }
-    button.primary {
-      border-color: transparent;
-      background: var(--accent);
-      color: #fff;
-    }
-    button.ghost {
-      background: var(--accent-weak);
-      color: var(--accent);
-      border-color: transparent;
-    }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    .section { margin-top: 16px; border-top:1px solid var(--border); padding-top:12px; }
-    .badges { display:flex; gap:6px; flex-wrap: wrap; }
-    .badge { font-size:12px; background:#fff; border:1px solid var(--border); border-radius: 999px; padding:4px 8px; }
-    .logs { max-height: 220px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px; }
-    .log-line { white-space: pre-wrap; margin: 0; }
-    .log-ok { color: var(--ok); }
-    .log-warn { color: var(--warn); }
-    .log-err { color: var(--err); }
-    .preview-grid {
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 12px;
-    }
-    .card {
-      background:#fff;
-      border:1px solid var(--border);
-      border-radius:12px;
-      box-shadow: var(--shadow);
-      padding:12px;
-    }
-    .card h4 { margin: 0 0 8px 0; font-size:14px; }
-    .triptych {
-      display:grid; grid-template-columns: repeat(3, 1fr); gap:8px;
-      align-items:center;
-    }
-    .tile {
-      display:flex; flex-direction:column; gap:6px; align-items:center;
-    }
-    .tile canvas {
-      width: 100%;
-      height: auto;
-      max-width: 140px;
-      border:1px solid var(--border);
-      border-radius: 8px;
-      background:#fff;
-    }
-    .tile label { font-size:12px; color:var(--muted); }
-    .metrics { font-size:12px; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; margin-top:6px; }
-    .sticky { position: sticky; top: 16px; }
-    .muted { color: var(--muted); }
-    details > summary { cursor:pointer; list-style:none; }
-    details > summary::-webkit-details-marker { display:none; }
-    .kv { display:grid; grid-template-columns: 1fr auto; gap:8px; font-size:13px; }
-    .sep { height:1px; background:var(--border); margin:8px 0; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif}
+    .wrap{max-width:1400px;margin:0 auto;padding:24px}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .title{font-size:20px}
+    .badges{display:flex;gap:8px;align-items:center}
+    .badge{font-size:12px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 8px}
+    .grid{display:grid;grid-template-columns:320px 1fr 320px;gap:16px}
+    @media(max-width:1200px){.grid{grid-template-columns:1fr}}
+    .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+    .panel h3{margin:0 0 10px 0;font-size:15px;font-weight:600}
+    .section{margin-top:16px;border-top:1px solid var(--border);padding-top:12px}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input[type=file]{width:100%;padding:8px;border:1px dashed var(--border);border-radius:10px;background:#fff}
+    .row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+    button{border:1px solid var(--border);background:#fff;color:var(--fg);padding:8px 12px;border-radius:10px;cursor:pointer;transition:.15s}
+    button.primary{border-color:transparent;background:var(--accent);color:#fff}
+    button.ghost{background:var(--accent-weak);color:var(--accent);border-color:transparent}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .sticky{position:sticky;top:16px}
+    .muted{color:var(--muted)}
+    .preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:12px}
+    .card h4{margin:0 0 8px 0;font-size:14px}
+    .triptych{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:center}
+    .tile{display:flex;flex-direction:column;gap:6px;align-items:center}
+    .tile canvas{width:100%;height:auto;max-width:140px;border:1px solid var(--border);border-radius:8px;background:#fff}
+    .tile label{font-size:12px;color:var(--muted)}
+    .metrics{font-size:12px;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+    .kv{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:13px}
+    .sep{height:1px;background:var(--border);margin:8px 0}
+    .logs{max-height:240px;overflow:auto;font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px}
+    .log-line{white-space:pre-wrap;margin:0}
+    .log-ok{color:var(--ok)} .log-warn{color:var(--warn)} .log-err{color:var(--err)}
   </style>
 </head>
 <body>
   <div class="wrap">
     <header>
-      <div class="title">MNIST Denoiser — White UI</div>
+      <div class="title">MNIST Autoencoder Denoiser</div>
       <div class="badges">
-        <span class="badge" id="dataBadge">Data: 0 / 0</span>
-        <span class="badge" id="modelBadge">Model: none</span>
+        <span class="badge" id="dataBadge">Данные: 0 / 0</span>
+        <span class="badge" id="modelBadge">Модель: нет</span>
         <button id="toggleVisorBtn" class="ghost">TFVis</button>
       </div>
     </header>
 
     <div class="grid">
-      <!-- Левая: Управление -->
-      <aside class="panel controls sticky">
-        <h3>Данные</h3>
+      <!-- Левая колонка: управление -->
+      <aside class="panel sticky" id="leftPanel">
+        <h3>Подготовка данных</h3>
         <label>Train CSV</label>
         <input type="file" id="trainFile" accept=".csv" />
         <label>Test CSV</label>
@@ -150,19 +73,59 @@
         </div>
 
         <div class="section">
-          <h3>Модель</h3>
+          <h3>Обучение и инференс</h3>
           <div class="row">
             <button id="trainBtn" class="primary">Обучить</button>
             <button id="evaluateBtn">Оценить</button>
           </div>
           <div class="row">
-            <button id="testFiveBtn">Denoise ×5</button>
+            <button id="testFiveBtn">Предпросмотр ×5</button>
+            <button id="saveModelBtn">Сохранить</button>
           </div>
-          <div class="row">
-            <button id="saveModelBtn">Скачать</button>
-          </div>
-          <label class="muted">Загрузить модель</label>
+          <label class="muted">Загрузка модели</label>
           <input type="file" id="modelJsonFile" accept=".json" />
           <input type="file" id="modelWeightsFile" accept=".bin" />
           <div class="row">
-            <button id="
+            <button id="loadModelBtn">Загрузить модель</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3>Журнал процессов</h3>
+          <details open>
+            <summary class="muted">Показать / скрыть логи</summary>
+            <div class="logs" id="trainingLogs"></div>
+          </details>
+        </div>
+      </aside>
+
+      <!-- Центр: предпросмотр -->
+      <main class="panel" id="centerPanel">
+        <h3>Предпросмотр денойзинга</h3>
+        <div id="previewContainer" class="preview-grid"></div>
+      </main>
+
+      <!-- Правая колонка: модель и метрики -->
+      <aside class="panel sticky" id="rightPanel">
+        <h3>Сводка по модели</h3>
+        <div class="kv" id="modelInfo">
+          <div class="muted">Нет модели</div><div></div>
+        </div>
+        <div class="sep"></div>
+        <h3>Метрики качества</h3>
+        <div class="kv" id="metricsInfo">
+          <div class="muted">Пока нет вычислений</div><div></div>
+        </div>
+        <div class="sep"></div>
+        <h3>Статус данных</h3>
+        <div class="kv" id="dataInfo">
+          <div>Train / Test</div><div id="dataCounts">0 / 0</div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script src="./data-loader.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
