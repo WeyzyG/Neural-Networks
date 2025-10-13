@@ -19,8 +19,10 @@
     #previewLabels { display: flex; gap: 18px; margin-top: 8px; font-weight: 600; }
     .muted { color: #666; }
     #textLogs { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; line-height: 1.35; }
-    #textLogs b { color: #2e7d32; }
+    #textLogs .ok { color: #2e7d32; }
     #textLogs .err { color: #c0392b; }
+    #textLogs .warn { color: #b26a00; }
+    #textLogs .sec { color: #0d47a1; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -95,7 +97,7 @@
 
       <div class="panel">
         <h3>Training Logs</h3>
-        <div id="textLogs" class="muted"></div>
+        <div id="textLogs"></div>
       </div>
 
       <div class="panel">
