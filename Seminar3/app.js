@@ -1,5 +1,5 @@
 // app.js
-// Wire UI + training/eval logic. Adds Step 1 toggle to use noisy test data.
+// Classifier (CNN) + Autoencoder denoiser training/evaluation UI wiring.
 
 import {
   loadTrainFromFiles,
@@ -7,114 +7,103 @@ import {
   splitTrainVal,
   getRandomTestBatch,
   draw28x28ToCanvas,
-  addGaussianNoise01,
-  addSaltPepper01
+  makeNoisyCleanPairs
 } from './data-loader.js';
 
-let state = {
-  trainFile: null,
-  testFile: null,
-  train: null,
-  testClean: null, // {xs, ys}
-  testNoisy: null, // cached noisy copy per current noise settings
-  model: null,
-  noiseMode: 'gaussian', // 'none'|'gaussian'|'sp'
-  noiseStd: 0.5,
-  noiseProb: 0.1
-};
-
-// ---- UI bindings ----
 const els = {
   inputTrain: document.getElementById('trainCsv'),
   inputTest: document.getElementById('testCsv'),
   btnLoad: document.getElementById('btnLoad'),
   btnTrain: document.getElementById('btnTrain'),
-  btnEvaluate: document.getElementById('btnEval'),
+  btnEval: document.getElementById('btnEval'),
   btnTest5: document.getElementById('btnTest5'),
   btnSave: document.getElementById('btnSave'),
   btnLoadModel: document.getElementById('btnLoadModel'),
   btnReset: document.getElementById('btnReset'),
-  visorToggle: document.getElementById('btnVisor'),
-  // Step 1 UI
+  btnVisor: document.getElementById('btnVisor'),
+  // AE controls
   noiseMode: document.getElementById('noiseMode'),
   noiseStd: document.getElementById('noiseStd'),
   noiseProb: document.getElementById('noiseProb'),
+  btnBuildAE: document.getElementById('btnBuildAE'),
+  btnTrainAE: document.getElementById('btnTrainAE'),
+  btnEvalAE: document.getElementById('btnEvalAE'),
+  btnTest5AE: document.getElementById('btnTest5AE'),
+  btnSaveAE: document.getElementById('btnSaveAE'),
+  // Info areas
   dataStatus: document.getElementById('dataStatus'),
-  previewRow: document.getElementById('previewRow'),
-  previewLabels: document.getElementById('previewLabels'),
   metricsText: document.getElementById('metricsText'),
-  modelInfo: document.getElementById('modelInfo')
+  modelInfo: document.getElementById('modelInfo'),
+  previewStrip: document.getElementById('previewStrip'),
+  previewLabels: document.getElementById('previewLabels')
 };
 
-// Attach events for file inputs
-els.inputTrain.addEventListener('change', e => state.trainFile = e.target.files[0]);
-els.inputTest.addEventListener('change', e => state.testFile = e.target.files[0]);
+let state = {
+  files: { train: null, test: null },
+  cls: { model: null, train: null, testClean: null, testNoisy: null },
+  ae: { model: null }, // autoencoder
+  noise: { mode: 'gaussian', std: 0.5, prob: 0.1 }
+};
 
-// Step 1: controls for noise
-els.noiseMode.addEventListener('change', async () => {
-  state.noiseMode = els.noiseMode.value;
-  await rebuildNoisyCache();
-});
-els.noiseStd.addEventListener('input', async () => {
-  state.noiseStd = parseFloat(els.noiseStd.value);
-  if (state.noiseMode === 'gaussian') await rebuildNoisyCache();
-});
-els.noiseProb.addEventListener('input', async () => {
-  state.noiseProb = parseFloat(els.noiseProb.value);
-  if (state.noiseMode === 'sp') await rebuildNoisyCache();
-});
+// ---------- UI events ----------
+els.inputTrain.addEventListener('change', e => state.files.train = e.target.files[0]);
+els.inputTest.addEventListener('change', e => state.files.test = e.target.files[0]);
+els.btnVisor.addEventListener('click', () => tfvis.visor().toggle());
 
-// Main buttons
 els.btnLoad.addEventListener('click', onLoadData);
-els.btnTrain.addEventListener('click', onTrain);
-els.btnEvaluate.addEventListener('click', onEvaluate);
-els.btnTest5.addEventListener('click', onTestFive);
-els.btnSave.addEventListener('click', async () => state.model && await state.model.save('downloads://mnist-cnn'));
-els.btnLoadModel.addEventListener('click', onLoadFromFiles);
-els.btnReset.addEventListener('click', onReset);
-els.visorToggle.addEventListener('click', () => tfvis.visor().toggle());
+els.btnTrain.addEventListener('click', onTrainClassifier);
+els.btnEval.addEventListener('click', onEvaluateClassifier);
+els.btnTest5.addEventListener('click', onTest5Classifier);
+els.btnSave.addEventListener('click', () => state.cls.model?.save('downloads://mnist-cnn'));
 
-// ---- Data load ----
+els.btnLoadModel.addEventListener('click', onLoadClassifierFiles);
+els.btnReset.addEventListener('click', () => onReset(false));
+
+els.noiseMode.addEventListener('change', async () => { state.noise.mode = els.noiseMode.value; await rebuildNoisyTest(); });
+els.noiseStd.addEventListener('input', async () => { state.noise.std = parseFloat(els.noiseStd.value); if (state.noise.mode === 'gaussian') await rebuildNoisyTest(); });
+els.noiseProb.addEventListener('input', async () => { state.noise.prob = parseFloat(els.noiseProb.value); if (state.noise.mode === 'sp') await rebuildNoisyTest(); });
+
+// AE
+els.btnBuildAE.addEventListener('click', buildAE);
+els.btnTrainAE.addEventListener('click', onTrainAE);
+els.btnEvalAE.addEventListener('click', onEvalAE);
+els.btnTest5AE.addEventListener('click', onTest5AE);
+els.btnSaveAE.addEventListener('click', () => state.ae.model?.save('downloads://mnist-ae'));
+
+// ---------- Data load ----------
 async function onLoadData() {
   try {
-    if (!state.trainFile || !state.testFile) {
-      alert('Please select both Train and Test CSV files.');
+    if (!state.files.train || !state.files.test) {
+      alert('Select both train and test CSV files.');
       return;
     }
-    // Dispose previous
-    await onReset({ keepFiles: true });
+    await onReset(true);
 
-    const train = await loadTrainFromFiles(state.trainFile);
-    const testClean = await loadTestFromFiles(state.testFile, { noise: 'none' });
-    state.train = train;
-    state.testClean = testClean;
+    state.cls.train = await loadTrainFromFiles(state.files.train);
+    state.cls.testClean = await loadTestFromFiles(state.files.test, { noise: 'none' });
+    await rebuildNoisyTest();
 
-    await rebuildNoisyCache();
-
-    els.dataStatus.textContent =
-      `Train: ${train.xs.shape[0]} | Test: ${testClean.xs.shape[0]} (noisy: ${state.testNoisy?.xs.shape[0]})`;
+    els.dataStatus.textContent = `Train: ${state.cls.train.xs.shape[0]} | Test: ${state.cls.testClean.xs.shape[0]} (noisy mode=${state.noise.mode})`;
   } catch (e) {
     console.error(e);
-    alert('Failed to load data: ' + e.message);
+    alert('Load error: ' + e.message);
   }
 }
 
-async function rebuildNoisyCache() {
-  if (!state.testClean) return;
-  // regenerate noisy cache from clean to avoid compounding noise
-  state.testNoisy?.xs?.dispose();
-  state.testNoisy?.ys?.dispose();
-  const opt = state.noiseMode === 'gaussian'
-    ? { noise: 'gaussian', stdDev: state.noiseStd }
-    : state.noiseMode === 'sp'
-      ? { noise: 'sp', prob: state.noiseProb }
-      : { noise: 'none' };
-  const reloaded = await loadTestFromFiles(state.testFile, opt);
-  state.testNoisy = reloaded;
+async function rebuildNoisyTest() {
+  if (!state.files.test) return;
+  // dispose previous
+  state.cls.testNoisy?.xs?.dispose();
+  state.cls.testNoisy?.ys?.dispose();
+  state.cls.testNoisy = await loadTestFromFiles(state.files.test, {
+    noise: state.noise.mode,
+    stdDev: state.noise.std,
+    prob: state.noise.prob
+  });
 }
 
-// ---- Model ----
-function buildModel() {
+// ---------- Classifier ----------
+function buildClassifier() {
   const m = tf.sequential();
   m.add(tf.layers.conv2d({ filters: 32, kernelSize: 3, activation: 'relu', padding: 'same', inputShape: [28, 28, 1] }));
   m.add(tf.layers.conv2d({ filters: 64, kernelSize: 3, activation: 'relu', padding: 'same' }));
@@ -128,148 +117,207 @@ function buildModel() {
   return m;
 }
 
-// ---- Train ----
-async function onTrain() {
+async function onTrainClassifier() {
   try {
-    if (!state.train) return alert('Load data first');
-    if (state.model) state.model.dispose();
-    state.model = buildModel();
+    if (!state.cls.train) return alert('Load data first.');
+    state.cls.model?.dispose();
+    state.cls.model = buildClassifier();
 
-    const { trainXs, trainYs, valXs, valYs } =
-      splitTrainVal(state.train.xs, state.train.ys, 0.1);
-
-    const metrics = ['loss', 'val_loss', 'acc', 'val_acc'];
-    const surface = { name: 'Training', tab: 'Training Logs' };
-    const callbacks = tfvis.show.fitCallbacks(surface, metrics);
-
-    const start = performance.now();
-    await state.model.fit(trainXs, trainYs, {
-      epochs: 8,
-      batchSize: 128,
-      shuffle: true,
-      validationData: [valXs, valYs],
-      callbacks
+    const { trainXs, trainYs, valXs, valYs } = splitTrainVal(state.cls.train.xs, state.cls.train.ys, 0.1);
+    const callbacks = tfvis.show.fitCallbacks({ name: 'Classifier Training', tab: 'Training Logs' }, ['loss', 'val_loss', 'acc', 'val_acc']);
+    const t0 = performance.now();
+    await state.cls.model.fit(trainXs, trainYs, {
+      epochs: 8, batchSize: 128, shuffle: true, validationData: [valXs, valYs], callbacks
     });
-    const dur = ((performance.now() - start) / 1000).toFixed(1);
-    els.metricsText.textContent = `Training finished in ${dur}s`;
+    const dur = ((performance.now() - t0) / 1000).toFixed(1);
+    els.metricsText.textContent = `Classifier trained in ${dur}s`;
+
     trainXs.dispose(); trainYs.dispose(); valXs.dispose(); valYs.dispose();
-
-    state.model.summary(undefined, undefined, x => {
-      const el = document.createElement('div'); el.textContent = x;
-      els.modelInfo.appendChild(el);
-    });
+    renderModelSummary(state.cls.model, 'Classifier');
   } catch (e) {
     console.error(e);
-    alert('Training error: ' + e.message);
+    alert('Train error: ' + e.message);
   }
 }
 
-// ---- Evaluate ----
-async function onEvaluate() {
+async function onEvaluateClassifier() {
   try {
-    if (!state.model || !state.testClean) return alert('Need model and data');
-    // Evaluate on noisy test data per Step 1
-    const use = state.testNoisy ?? state.testClean;
-    const evalRes = await state.model.evaluate(use.xs, use.ys, { batchSize: 256 });
-    const acc = Array.isArray(evalRes) ? evalRes[1].dataSync()[0] : evalRes.dataSync()[0];
-    els.metricsText.textContent = `Test accuracy (noisy=${state.noiseMode}): ${(acc * 100).toFixed(2)}%`;
+    if (!state.cls.model || !state.cls.testClean) return alert('Need model and data.');
+    const use = state.cls.testNoisy ?? state.cls.testClean;
+    const res = await state.cls.model.evaluate(use.xs, use.ys, { batchSize: 256 });
+    const acc = Array.isArray(res) ? res[1].dataSync()[0] : res.dataSync()[0];
+    els.metricsText.textContent = `Classifier test accuracy (noisy=${state.noise.mode}) = ${(acc * 100).toFixed(2)}%`;
 
-    // Confusion matrix
-    const preds = state.model.predict(use.xs).argMax(-1);
+    const preds = state.cls.model.predict(use.xs).argMax(-1);
     const labels = use.ys.argMax(-1);
     const cm = await tfvis.metrics.confusionMatrix(labels, preds, 10);
-    await tfvis.render.confusionMatrix(
-      { name: 'Confusion Matrix', tab: 'Metrics' },
-      { values: cm, tickLabels: [...Array(10)].map((_, i) => String(i)) }
-    );
-    // Per-class accuracy
-    const classAcc = tfvis.metrics.perClassAccuracy(labels, preds);
-    const series = Object.keys(classAcc).map(k => ({ index: Number(k), acc: classAcc[k] }));
-    await tfvis.render.barchart(
-      { name: 'Per-class Accuracy', tab: 'Metrics' },
-      series.map(s => ({ x: String(s.index), y: s.acc }))
-    );
+    await tfvis.render.confusionMatrix({ name: 'Confusion Matrix', tab: 'Metrics' }, { values: cm, tickLabels: [...Array(10)].map((_, i) => String(i)) });
+    const pca = tfvis.metrics.perClassAccuracy(labels, preds);
+    await tfvis.render.barchart({ name: 'Per‑class Accuracy', tab: 'Metrics' }, Object.keys(pca).map(k => ({ x: k, y: pca[k] })));
     preds.dispose(); labels.dispose();
   } catch (e) {
     console.error(e);
-    alert('Evaluation error: ' + e.message);
+    alert('Eval error: ' + e.message);
   }
 }
 
-// ---- Test 5 Random ----
-async function onTestFive() {
+async function onTest5Classifier() {
   try {
-    if (!state.model || !state.testClean) return alert('Need model and data');
-    const use = state.testNoisy ?? state.testClean;
-
-    // Prepare UI row
-    els.previewRow.innerHTML = '';
-    els.previewLabels.innerHTML = '';
-
+    if (!state.cls.model || !state.cls.testClean) return alert('Need model and data.');
+    const use = state.cls.testNoisy ?? state.cls.testClean;
+    els.previewStrip.innerHTML = ''; els.previewLabels.innerHTML = '';
     const { batchXs, batchYs } = getRandomTestBatch(use.xs, use.ys, 5);
-    const preds = state.model.predict(batchXs).argMax(-1);
-    const labels = batchYs.argMax(-1);
-
-    const predArr = Array.from(preds.dataSync());
-    const labArr = Array.from(labels.dataSync());
-
-    const xsSplit = tf.unstack(batchXs);
-    for (let i = 0; i < xsSplit.length; i++) {
-      const canvas = document.createElement('canvas');
-      canvas.style.marginRight = '8px';
-      els.previewRow.appendChild(canvas);
-      draw28x28ToCanvas(xsSplit[i], canvas, 4);
-
-      const span = document.createElement('span');
-      span.style.marginRight = '20px';
-      span.textContent = `${predArr[i]}`;
-      span.style.color = predArr[i] === labArr[i] ? 'green' : 'red';
-      els.previewLabels.appendChild(span);
-      xsSplit[i].dispose();
+    const preds = state.cls.model.predict(batchXs).argMax(-1);
+    const yTrue = batchYs.argMax(-1);
+    const pa = Array.from(preds.dataSync()); const ya = Array.from(yTrue.dataSync());
+    for (const img of tf.unstack(batchXs)) {
+      const c = document.createElement('canvas'); els.previewStrip.appendChild(c);
+      draw28x28ToCanvas(img, c, 4); img.dispose();
     }
-    preds.dispose(); labels.dispose(); batchXs.dispose(); batchYs.dispose();
+    for (let i = 0; i < pa.length; i++) {
+      const s = document.createElement('span'); s.textContent = String(pa[i]);
+      s.style.color = pa[i] === ya[i] ? '#2e7d32' : '#c0392b'; els.previewLabels.appendChild(s);
+    }
+    preds.dispose(); yTrue.dispose(); batchXs.dispose(); batchYs.dispose();
   } catch (e) {
     console.error(e);
     alert('Preview error: ' + e.message);
   }
 }
 
-// ---- Load model from files ----
-async function onLoadFromFiles() {
+async function onLoadClassifierFiles() {
   try {
-    const jsonInput = document.getElementById('modelJson');
-    const binInput = document.getElementById('modelBin');
-    if (!jsonInput.files[0] || !binInput.files[0]) {
-      alert('Select model.json and weights.bin');
-      return;
-    }
-    if (state.model) state.model.dispose();
-    state.model = await tf.loadLayersModel(tf.io.browserFiles([jsonInput.files[0], binInput.files[0]]));
-    els.modelInfo.textContent = 'Loaded model';
+    const j = document.getElementById('modelJson').files[0];
+    const b = document.getElementById('modelBin').files[0];
+    if (!j || !b) return alert('Select model.json and weights.bin');
+    state.cls.model?.dispose();
+    state.cls.model = await tf.loadLayersModel(tf.io.browserFiles([j, b]));
+    renderModelSummary(state.cls.model, 'Classifier (loaded)');
   } catch (e) {
     console.error(e);
-    alert('Model load error: ' + e.message);
+    alert('Load model error: ' + e.message);
   }
 }
 
-// ---- Reset ----
-async function onReset(opts = {}) {
+// ---------- Autoencoder (Steps 2–4) ----------
+function buildAE() {
+  state.ae.model?.dispose();
+  // Simple conv autoencoder: 28x28x1 -> bottleneck -> 28x28x1
+  const m = tf.sequential();
+  // Encoder
+  m.add(tf.layers.conv2d({ filters: 32, kernelSize: 3, activation: 'relu', padding: 'same', inputShape: [28, 28, 1] }));
+  m.add(tf.layers.maxPooling2d({ poolSize: 2, padding: 'same' }));
+  m.add(tf.layers.conv2d({ filters: 64, kernelSize: 3, activation: 'relu', padding: 'same' }));
+  m.add(tf.layers.maxPooling2d({ poolSize: 2, padding: 'same' })); // 7x7
+  // Decoder
+  m.add(tf.layers.conv2dTranspose({ filters: 64, kernelSize: 3, strides: 2, activation: 'relu', padding: 'same' })); // 14x14
+  m.add(tf.layers.conv2dTranspose({ filters: 32, kernelSize: 3, strides: 2, activation: 'relu', padding: 'same' })); // 28x28
+  m.add(tf.layers.conv2d({ filters: 1, kernelSize: 3, activation: 'sigmoid', padding: 'same' })); // output [0,1]
+  m.compile({ optimizer: 'adam', loss: 'meanSquaredError' });
+  state.ae.model = m;
+  renderModelSummary(state.ae.model, 'Autoencoder');
+}
+
+async function onTrainAE() {
   try {
-    els.previewRow.innerHTML = '';
-    els.previewLabels.innerHTML = '';
-    els.metricsText.textContent = '';
-    els.modelInfo.textContent = '';
-    if (state.model) { state.model.dispose(); state.model = null; }
-    for (const key of ['train', 'testClean', 'testNoisy']) {
-      if (state[key]?.xs) state[key].xs.dispose();
-      if (state[key]?.ys) state[key].ys.dispose();
-      state[key] = null;
-    }
-    if (!opts.keepFiles) {
-      state.trainFile = null; state.testFile = null;
-      els.inputTrain.value = ''; els.inputTest.value = '';
-    }
+    if (!state.cls.train) return alert('Load data first.');
+    if (!state.ae.model) buildAE();
+
+    // Build noisy-clean pairs from train.xs
+    const { noisy, clean } = makeNoisyCleanPairs(state.cls.train.xs, state.noise.mode, { stdDev: state.noise.std, prob: state.noise.prob });
+    const { trainXs, valXs } = splitTrainVal(noisy, clean, 0.1); // reuse split for tensors of same first dim
+    const { trainXs: trainClean, valXs: valClean } = splitTrainVal(clean, clean, 0.1);
+
+    const callbacks = tfvis.show.fitCallbacks({ name: 'AE Training', tab: 'Training Logs' }, ['loss', 'val_loss']);
+    const t0 = performance.now();
+    await state.ae.model.fit(trainXs, trainClean, {
+      epochs: 8, batchSize: 128, shuffle: true, validationData: [valXs, valClean], callbacks
+    });
+    const dur = ((performance.now() - t0) / 1000).toFixed(1);
+    els.metricsText.textContent = `AE trained in ${dur}s`;
+
+    // dispose temp
+    trainXs.dispose(); valXs.dispose(); trainClean.dispose(); valClean.dispose(); noisy.dispose(); // clean is train.xs reference; don't dispose
   } catch (e) {
     console.error(e);
+    alert('AE train error: ' + e.message);
   }
+}
+
+async function onEvalAE() {
+  try {
+    if (!state.ae.model || !state.cls.testClean) return alert('Need AE and data.');
+    const noisy = await getNoisyTestXs();
+    const res = await state.ae.model.evaluate(noisy, state.cls.testClean.xs, { batchSize: 256 });
+    const loss = Array.isArray(res) ? res[0].dataSync()[0] : res.dataSync()[0];
+    els.metricsText.textContent = `AE MSE on noisy→clean: ${loss.toFixed(5)}`;
+    noisy.dispose();
+  } catch (e) {
+    console.error(e);
+    alert('AE eval error: ' + e.message);
+  }
+}
+
+async function onTest5AE() {
+  try {
+    if (!state.ae.model || !state.cls.testClean) return alert('Need AE and data.');
+    els.previewStrip.innerHTML = ''; els.previewLabels.innerHTML = '';
+    const noisy = await getNoisyTestXs();
+    const { batchXs } = getRandomTestBatch(noisy, null, 5);
+    const denoised = state.ae.model.predict(batchXs);
+
+    // Render pairs: noisy (top row) then denoised (bottom row)
+    const k = batchXs.shape[0];
+    for (let i = 0; i < k; i++) {
+      const c = document.createElement('canvas'); els.previewStrip.appendChild(c);
+      draw28x28ToCanvas(batchXs.slice([i, 0, 0, 0], [1, 28, 28, 1]).squeeze(), c, 4);
+    }
+    const br = document.createElement('div'); br.style.flexBasis = '100%'; els.previewStrip.appendChild(br);
+    for (let i = 0; i < k; i++) {
+      const c = document.createElement('canvas'); els.previewStrip.appendChild(c);
+      draw28x28ToCanvas(denoised.slice([i, 0, 0, 0], [1, 28, 28, 1]).squeeze(), c, 4);
+    }
+    els.previewLabels.textContent = 'Top: noisy, Bottom: denoised';
+
+    batchXs.dispose(); denoised.dispose(); noisy.dispose();
+  } catch (e) {
+    console.error(e);
+    alert('AE preview error: ' + e.message);
+  }
+}
+
+async function getNoisyTestXs() {
+  // regenerate from clean each time to avoid compounding
+  const { noisy } = makeNoisyCleanPairs(state.cls.testClean.xs, state.noise.mode, { stdDev: state.noise.std, prob: state.noise.prob });
+  return noisy;
+}
+
+// ---------- Common ----------
+function renderModelSummary(model, title) {
+  els.modelInfo.innerHTML = '';
+  const div = document.createElement('div');
+  div.textContent = `${title} — layers: ${model.layers.length}, params: ${model.countParams()}`;
+  els.modelInfo.appendChild(div);
+  model.summary(undefined, undefined, line => {
+    const el = document.createElement('div'); el.className = 'muted'; el.textContent = line; els.modelInfo.appendChild(el);
+  });
+}
+
+async function onReset(keepFiles = false) {
+  try {
+    els.metricsText.textContent = 'No metrics yet';
+    els.previewStrip.innerHTML = ''; els.previewLabels.innerHTML = '';
+    els.modelInfo.textContent = 'No model loaded';
+    state.cls.model?.dispose(); state.cls.model = null;
+    state.ae.model?.dispose(); state.ae.model = null;
+    for (const k of ['train', 'testClean', 'testNoisy']) {
+      if (state.cls[k]?.xs) state.cls[k].xs.dispose();
+      if (state.cls[k]?.ys) state.cls[k].ys.dispose();
+      state.cls[k] = null;
+    }
+    if (!keepFiles) {
+      els.inputTrain.value = ''; els.inputTest.value = '';
+      state.files.train = null; state.files.test = null;
+    }
+  } catch (e) { console.error(e); }
 }
