@@ -64,7 +64,7 @@ class MNISTDataLoader {
     }
 
     // Add Gaussian noise to images
-    addNoise(images, noiseStd = 0.3) {
+    addNoise(images, noiseStd = 0.6) {
         return tf.tidy(() => {
             const noise = tf.randomNormal(images.shape, 0, noiseStd);
             const noisyImages = images.add(noise).clipByValue(0, 1);
@@ -73,7 +73,7 @@ class MNISTDataLoader {
     }
 
     // Add noise to flattened images (for dense network)
-    addNoiseDense(images, noiseStd = 0.3) {
+    addNoiseDense(images, noiseStd = 0.6) {
         return tf.tidy(() => {
             const noise = tf.randomNormal(images.shape, 0, noiseStd);
             const noisyImages = images.add(noise).clipByValue(0, 1);
