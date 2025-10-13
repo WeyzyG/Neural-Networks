@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Загрузка и Деноизинг MNIST в TensorFlow.js</title>
+    <title>MNIST Data Loading and Denoising Autoencoder</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
     <style>
@@ -98,20 +98,62 @@
     </style>
 </head>
 <body>
-    <h1>MNIST: Загрузка данных и обучение денойзера</h1>
+    <h1>MNIST: Data Loading and Denoiser Training</h1>
 
-    <section class="file-inputs" aria-label="Загрузка файлов данных">
-        <label for="trainFile">Обучающий CSV:
+    <section class="file-inputs" aria-label="Data file upload">
+        <label for="trainFile">Train CSV:
             <input type="file" id="trainFile" accept=".csv" />
         </label>
-        <label for="testFile">Тестовый CSV:
+        <label for="testFile">Test CSV:
             <input type="file" id="testFile" accept=".csv" />
         </label>
-        <button id="loadDataBtn" aria-label="Загрузить данные">Загрузить данные</button>
+        <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
     </section>
 
     <div class="container">
-        <section class="left-column" aria-label="Управление и состояние">
-            <h2>Управляющие кнопки</h2>
+        <section class="left-column" aria-label="Controls and status">
+            <h2>Controls</h2>
             <div id="controls">
-                <button id="trainBtn" title="Начать обучение денойзера">Обучить денойзеручить денойзер
+                <button id="trainBtn" title="Train the denoiser">Train Denoiser</button>
+                <button id="evaluateBtn" title="Evaluate the model">Evaluate</button>
+                <button id="testFiveBtn" title="Test denoising with 5 random samples">Test Denoising (5 Random)</button>
+                <button id="saveModelBtn" title="Save the trained model">Save Model</button>
+                <button id="resetBtn" title="Reset the application">Reset</button>
+                <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
+            </div>
+
+            <h2>Load Existing Model</h2>
+            <div id="model-loaders">
+                <label for="modelJsonFile">Model JSON:
+                    <input type="file" id="modelJsonFile" accept=".json" />
+                </label>
+                <label for="modelWeightsFile">Model Weights:
+                    <input type="file" id="modelWeightsFile" accept=".bin" />
+                </label>
+                <button id="loadModelBtn" title="Load existing model">Load Model</button>
+            </div>
+
+            <div id="dataStatus" class="status" aria-live="polite">
+                <h3>Data Status</h3>
+                <p>No data loaded</p>
+            </div>
+
+            <div id="modelInfo" class="status" aria-live="polite">
+                <h3>Model Info</h3>
+                <p>No model loaded</p>
+            </div>
+        </section>
+
+        <section class="right-column" aria-label="Training logs and preview">
+            <h2>Training Logs</h2>
+            <div id="trainingLogs"></div>
+
+            <h2>Denoising Preview</h2>
+            <div id="previewContainer" class="preview-row"></div>
+        </section>
+    </div>
+
+    <script src="data-loader.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
