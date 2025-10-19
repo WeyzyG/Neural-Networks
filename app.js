@@ -43,43 +43,28 @@ class MNISTApp {
     const counts = Array(10).fill(0);
     labels.forEach(lbl => counts[lbl]++);
     let hist = '<b>Распределение классов (label count):</b><br>';
-    hist += '<canvas id="edaClassDistributionChart" width="340" height="120"></canvas><br>';
+    hist += '<canvas id="edaClassDistributionChart" width="600" height="300"></canvas><br>';
     edaDiv.innerHTML += hist;
 
     // 2. Статистика по интенсивности
-    const xsFlat = this.trainData.xs.dataSync();
-    let min = xsFlat[0], max = xsFlat[0], sum = 0, sum2 = 0;
-    for (let v of xsFlat) {
-      if (v < min) min = v;
-      if (v > max) max = v;
-      sum += v;
-      sum2 += v*v;
-    }
-    const mean = sum / xsFlat.length;
-    const std = Math.sqrt(sum2 / xsFlat.length - mean * mean);
-    edaDiv.innerHTML += `<b>Пиксельная статистика:</b><br>
-      min: ${min.toFixed(4)}, max: ${max.toFixed(4)}, mean: ${mean.toFixed(4)}, std: ${std.toFixed(4)}<br>`;
-
-    // 3. Примеры изображений из каждого класса
-    edaDiv.innerHTML += `<b>Примеры изображений по классам:</b>
-      <div id="edaImagesGrid"></div>`;
-    const grid = document.getElementById('edaImagesGrid');
-    for (let classIdx = 0; classIdx < 10; ++classIdx) {
-      // ищем индексы примеров текущего класса
-      const indices = labels
-        .map((lbl, i) => lbl === classIdx ? i : -1)
-        .filter(i => i >= 0);
-      if (indices.length === 0) continue;
-      for (let i = 0; i < Math.min(2, indices.length); ++i) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 28; canvas.height = 28;
-        this.dataLoader.draw28x28ToCanvas(
-          this.trainData.xs.slice([indices[i], 0, 0, 0], [1, 28, 28, 1]), 
-          canvas, 3
-        );
-        canvas.title = `Label ${classIdx}`;
-        grid.appendChild(canvas);
-      }
+    let xsFlatRaw = this.trainData.xs.dataSync
+      ? this.trainData.xs.dataSync()
+      : Array.from(this.trainData.xs.flat ? this.trainData.xs.flat() : this.trainData.xs);
+    
+    // Фильтруем только валидные значения от 0 до 1
+    let xsFlat = Array.from(xsFlatRaw).filter(v => typeof v === 'number' && !isNaN(v) && v >= 0 && v <= 1);
+    
+    if (xsFlat.length === 0) {
+      edaDiv.innerHTML += `<b>Пиксельная статистика:</b> <br>
+        Нет валидных данных для подсчета статистики.<br>`;
+    } else {
+      let min = Math.min(...xsFlat);
+      let max = Math.max(...xsFlat);
+      let sum = xsFlat.reduce((a,b) => a+b, 0);
+      let mean = sum / xsFlat.length;
+      let std = Math.sqrt(xsFlat.map(x => Math.pow(x-mean,2)).reduce((a,b)=>a+b,0) / xsFlat.length);
+      edaDiv.innerHTML += `<b>Пиксельная статистика:</b><br>
+        min: ${min.toFixed(4)}, max: ${max.toFixed(4)}, mean: ${mean.toFixed(4)}, std: ${std.toFixed(4)}<br>`;
     }
 
     // 4. Проверка на NaN или некорректные лейблы
