@@ -34,7 +34,6 @@ class MNISTApp {
   }
 
   async onLoadData() {
-  
     try {
       const trainFile = document.getElementById('trainFile').files[0];
       const testFile = document.getElementById('testFile').files[0];
@@ -53,36 +52,10 @@ class MNISTApp {
       this.updateDataStatus(trainData.count, testData.count);
       this.showStatus('Data loaded');
       this.showStatus(`Train shape: ${trainData.xs.shape}, Test shape: ${testData.xs.shape}`);
-      this.showStatus(`Data range - Min: ${trainData.xs.min().dataSync()[0].toFixed(3)}, Max: ${trainData.xs.max().dataSync()[0].toFixed(3)}`)
-      this.runEDA();
+      this.showStatus(`Data range - Min: ${trainData.xs.min().dataSync()[0].toFixed(3)}, Max: ${trainData.xs.max().dataSync()[0].toFixed(3)}`);
     } catch (error) {
       this.showError(`Load error: ${error.message}`);
     }
-  
-  getClassDist(labels) {
-    const dist = Array(10).fill(0);
-    labels.forEach(l => dist[l]++);
-    return dist;
-  }
-  
-  std(arr, mean) {
-    return Math.sqrt(arr.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / arr.length);
-  }
-  
-  pearsonCorr(a, b) {
-    // Pearson correlation
-    const n = a.length;
-    const ma = a.reduce((ac, v) => ac + v, 0) / n;
-    const mb = b.reduce((ac, v) => ac + v, 0) / n;
-    let num = 0, da = 0, db = 0;
-    for (let i = 0; i < n; i++) {
-      num += (a[i]-ma)*(b[i]-mb);
-      da += (a[i]-ma)**2;
-      db += (b[i]-mb)**2;
-    }
-    return num / Math.sqrt(da*db);
-  }
-
   }
 
   async onTrain() {
@@ -221,57 +194,34 @@ class MNISTApp {
     tfvis.visor().toggle();
   }
 
-createCNNClassifier() {
-  const model = tf.sequential();
-
-  model.add(tf.layers.conv2d({
-    inputShape: [28, 28, 1],
-    filters: 32,
-    kernelSize: 3,
-    activation: 'relu',
-    padding: 'same'
-  }));
-  model.add(tf.layers.batchNormalization());
-  model.add(tf.layers.conv2d({
-    filters: 32,
-    kernelSize: 3,
-    activation: 'relu',
-    padding: 'same'
-  }));
-  model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
-  model.add(tf.layers.dropout({ rate: 0.25 }));
-
-  model.add(tf.layers.conv2d({
-    filters: 64,
-    kernelSize: 3,
-    activation: 'relu',
-    padding: 'same'
-  }));
-  model.add(tf.layers.batchNormalization());
-  model.add(tf.layers.conv2d({
-    filters: 64,
-    kernelSize: 3,
-    activation: 'relu',
-    padding: 'same'
-  }));
-  model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
-  model.add(tf.layers.dropout({ rate: 0.25 }));
-
-  model.add(tf.layers.flatten());
-  model.add(tf.layers.dense({ units: 256, activation: 'relu' }));
-  model.add(tf.layers.dropout({ rate: 0.5 }));
-
-  model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
-
-  model.compile({
-    optimizer: tf.train.adam(0.001),
-    loss: 'categoricalCrossentropy',
-    metrics: ['accuracy']
-  });
-
-  model.summary();
-  return model;
-}
+  createCNNClassifier() {
+    const model = tf.sequential();
+    model.add(tf.layers.conv2d({
+      inputShape: [28, 28, 1],
+      filters: 32,
+      kernelSize: 3,
+      activation: 'relu',
+      padding: 'same'
+    }));
+    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+    model.add(tf.layers.conv2d({
+      filters: 64,
+      kernelSize: 3,
+      activation: 'relu',
+      padding: 'same'
+    }));
+    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+    model.add(tf.layers.flatten());
+    model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+    model.compile({
+      optimizer: tf.train.adam(0.001),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy']
+    });
+    model.summary();
+    return model;
+  }
 
   renderPredictionsPreview(images, trueLabels, predLabels) {
     const container = document.getElementById('previewContainer');
