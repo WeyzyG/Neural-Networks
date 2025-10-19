@@ -1,159 +1,304 @@
-class MNISTDataLoader {
-    constructor() {
-        this.trainData = null;
-        this.testData = null;
+class MNISTApp {
+  constructor() {
+    this.dataLoader = new MNISTDataLoader();
+    this.model = null;
+    this.isTraining = false;
+    this.trainData = null;
+    this.testData = null;
+
+    this.initializeUI();
+  }
+
+  initializeUI() {
+    document.getElementById('loadDataBtn').addEventListener('click', () => this.onLoadData());
+    document.getElementById('trainBtn').addEventListener('click', () => this.onTrain());
+    document.getElementById('evaluateBtn').addEventListener('click', () => this.onEvaluate());
+    document.getElementById('testFiveBtn').addEventListener('click', () => this.onTestFive());
+    document.getElementById('saveModelBtn').addEventListener('click', () => this.onSaveDownload());
+    document.getElementById('loadModelBtn').addEventListener('click', () => this.onLoadFromFiles());
+    document.getElementById('resetBtn').addEventListener('click', () => this.onReset());
+    document.getElementById('toggleVisorBtn').addEventListener('click', () => this.toggleVisor());
+  }
+
+  async onLoadData() {
+    try {
+      const trainFile = document.getElementById('trainFile').files[0];
+      const testFile = document.getElementById('testFile').files[0];
+
+      if (!trainFile || !testFile) {
+        this.showError('Выберите train и test CSV файлы');
+        return;
+      }
+
+      this.showStatus('Загрузка тренировочных данных...');
+      const trainData = await this.dataLoader.loadTrainFromFiles(trainFile);
+
+      this.showStatus('Загрузка тестовых данных...');
+      const testData = await this.dataLoader.loadTestFromFiles(testFile);
+
+      this.trainData = trainData;
+      this.testData = testData;
+
+      this.updateDataStatus(trainData.count, testData.count);
+      this.showStatus('Данные загружены');
+      this.showStatus(`Train shape: ${trainData.xs.shape}, Test shape: ${testData.xs.shape}`);
+      this.showStatus(`Диапазон данных - Min: ${trainData.xs.min().dataSync()[0].toFixed(3)}, Max: ${trainData.xs.max().dataSync()[0].toFixed(3)}`);
+    } catch (error) {
+      this.showError(`Ошибка загрузки: ${error.message}`);
     }
+  }
 
-    // Parse CSV file and convert to tensors
-    async loadCSVFile(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = (event) => {
-                try {
-                    const content = event.target.result;
-                    const lines = content.split('\n').filter(line => line.trim() !== '');
-
-                    const labels = [];
-                    const pixels = [];
-
-                    for (const line of lines) {
-                        const values = line.split(',').map(Number);
-                        if (values.length !== 785) continue; // label + 784 pixels
-
-                        labels.push(values[0]);
-                        pixels.push(values.slice(1));
-                    }
-
-                    if (labels.length === 0) {
-                        reject(new Error('No valid data found in file'));
-                        return;
-                    }
-
-                    // Normalize pixels to [0, 1] and reshape to [N, 28, 28, 1]
-                    const xs = tf.tidy(() => {
-                        return tf.tensor2d(pixels)
-                            .div(255)
-                            .reshape([labels.length, 28, 28, 1]);
-                    });
-
-                    // One-hot encode labels (Fashion-MNIST: 10 classes)
-                    const ys = tf.tidy(() => {
-                        return tf.oneHot(labels, 10);
-                    });
-
-                    resolve({ xs, ys, count: labels.length, labels });
-                } catch (error) {
-                    reject(error);
-                }
-            };
-
-            reader.onerror = () => reject(new Error('Failed to read file'));
-            reader.readAsText(file);
-        });
+  async onTrain() {
+    if (!this.trainData) {
+      this.showError('Сначала загрузите тренировочные данные');
+      return;
     }
-
-    async loadTrainFromFiles(file) {
-        this.trainData = await this.loadCSVFile(file);
-        return this.trainData;
+    if (this.isTraining) {
+      this.showError('Обучение уже запущено');
+      return;
     }
+    try {
+      this.isTraining = true;
+      this.showStatus('Создание CNN классификатора...');
+      this.model = this.createCNNClassifier();
+      this.updateModelInfo();
 
-    async loadTestFromFiles(file) {
-        this.testData = await this.loadCSVFile(file);
-        return this.testData;
-    }
-
-    // Add Gaussian noise to images
-    addNoise(images, noiseStd = 0.6) {
-        return tf.tidy(() => {
-            const noise = tf.randomNormal(images.shape, 0, noiseStd);
-            const noisyImages = images.add(noise).clipByValue(0, 1);
-            return noisyImages;
-        });
-    }
-
-    addNoiseDense(images, noiseStd = 0.6) {
-        return tf.tidy(() => {
-            const noise = tf.randomNormal(images.shape, 0, noiseStd);
-            const noisyImages = images.add(noise).clipByValue(0, 1);
-            return noisyImages;
-        });
-    }
-
-    splitTrainVal(xs, ys, valRatio = 0.1) {
-        return tf.tidy(() => {
-            const numVal = Math.floor(xs.shape[0] * valRatio);
-            const numTrain = xs.shape[0] - numVal;
-
-            const trainXs = xs.slice([0, 0, 0, 0], [numTrain, 28, 28, 1]);
-            const trainYs = ys.slice([0, 0], [numTrain, 10]);
-
-            const valXs = xs.slice([numTrain, 0, 0, 0], [numVal, 28, 28, 1]);
-            const valYs = ys.slice([numTrain, 0], [numVal, 10]);
-
-            return { trainXs, trainYs, valXs, valYs };
-        });
-    }
-
-    getRandomTestBatch(xs, ys, k = 5) {
-        return tf.tidy(() => {
-            const shuffledIndices = tf.util.createShuffledIndices(xs.shape[0]);
-            const selectedIndices = Array.from(shuffledIndices.slice(0, k));
-
-            const batchXs = tf.gather(xs, selectedIndices);
-            const batchYs = tf.gather(ys, selectedIndices);
-
-            return { batchXs, batchYs, indices: selectedIndices };
-        });
-    }
-
-    draw28x28ToCanvas(tensor, canvas, scale = 4) {
-        return tf.tidy(() => {
-            const ctx = canvas.getContext('2d');
-            const imageData = new ImageData(28, 28);
-
-            const data = tensor.reshape([28, 28]).mul(255).dataSync();
-
-            for (let i = 0; i < 784; i++) {
-                const val = data[i];
-                imageData.data[i * 4] = val;     // R
-                imageData.data[i * 4 + 1] = val; // G
-                imageData.data[i * 4 + 2] = val; // B
-                imageData.data[i * 4 + 3] = 255; // A
-            }
-
-            canvas.width = 28 * scale;
-            canvas.height = 28 * scale;
-            ctx.imageSmoothingEnabled = false;
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = 28;
-            tempCanvas.height = 28;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.putImageData(imageData, 0, 0);
-
-            ctx.drawImage(tempCanvas, 0, 0, 28 * scale, 28 * scale);
-        });
-    }
-
-    calculatePSNR(original, reconstructed) {
-        return tf.tidy(() => {
-            const mse = reconstructed.sub(original).square().mean();
-            const psnr = tf.scalar(20).mul(tf.scalar(1).log().div(tf.scalar(10).log())).sub(mse.log().div(tf.scalar(10).log()).mul(tf.scalar(10)));
-            return psnr;
-        });
-    }
-
-    dispose() {
-        if (this.trainData) {
-            this.trainData.xs.dispose();
-            this.trainData.ys.dispose();
-            this.trainData = null;
+      this.showStatus('Запуск обучения...');
+      const startTime = Date.now();
+      const history = await this.model.fit(this.trainData.xs, this.trainData.ys, {
+        epochs: 5,
+        batchSize: 32,
+        validationSplit: 0.2,
+        shuffle: true,
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            this.showStatus(`Epoch ${epoch + 1}/5 - loss: ${logs.loss.toFixed(6)}, val_acc: ${(logs.val_acc || logs.val_accuracy).toFixed(3)}`);
+          }
         }
-        if (this.testData) {
-            this.testData.xs.dispose();
-            this.testData.ys.dispose();
-            this.testData = null;
-        }
+      });
+
+      const duration = (Date.now() - startTime) / 1000;
+      const finalLoss = history.history.loss[history.history.loss.length - 1];
+      const finalAcc = (history.history.val_acc || history.history.val_accuracy)[history.history.val_loss.length - 1];
+      this.showStatus(`Обучение закончено за ${duration.toFixed(1)}s, финальная loss: ${finalLoss.toFixed(6)}, val acc: ${finalAcc.toFixed(3)}`);
+
+    } catch (error) {
+      this.showError(`Ошибка обучения: ${error.message}`);
+      console.error(error);
+    } finally {
+      this.isTraining = false;
     }
+  }
+
+  async onEvaluate() {
+    if (!this.model) {
+      this.showError('Сначала обучите или загрузите модель');
+      return;
+    }
+    if (!this.testData) {
+      this.showError('Сначала загрузите тестовые данные');
+      return;
+    }
+    try {
+      this.showStatus('Оценка на тесте...');
+      const evalOutput = await this.model.evaluate(this.testData.xs, this.testData.ys);
+      const testLoss = evalOutput[0].dataSync()[0];
+      const testAcc = evalOutput[1].dataSync()[0];
+      this.showStatus(`Test Loss: ${testLoss.toFixed(4)}, Test Accuracy: ${(testAcc * 100).toFixed(2)}%`);
+    } catch (error) {
+      this.showError(`Ошибка оценки: ${error.message}`);
+    }
+  }
+
+  async onTestFive() {
+    if (!this.model || !this.testData) {
+      this.showError('Сначала загрузите модель и тестовые данные');
+      return;
+    }
+    try {
+      this.showStatus('Вывод примера предсказаний...');
+      const { batchXs, batchYs, indices } = this.dataLoader.getRandomTestBatch(this.testData.xs, this.testData.ys, 5);
+
+      const preds = this.model.predict(batchXs);
+      const predLabels = preds.argMax(-1);
+      const trueLabels = batchYs.argMax(-1);
+
+      const predArray = await predLabels.array();
+      const trueArray = await trueLabels.array();
+
+      this.renderPredictionsPreview(batchXs, trueArray, predArray, indices);
+
+      batchXs.dispose();
+      batchYs.dispose();
+      preds.dispose();
+      predLabels.dispose();
+      trueLabels.dispose();
+
+    } catch (error) {
+      this.showError(`Ошибка предсказаний: ${error.message}`);
+    }
+  }
+
+  async onSaveDownload() {
+    if (!this.model) {
+      this.showError('Нет модели для сохранения');
+      return;
+    }
+    try {
+      await this.model.save('downloads://fashion-mnist-cnn');
+      this.showStatus('Модель успешно сохранена');
+    } catch (error) {
+      this.showError(`Ошибка сохранения: ${error.message}`);
+    }
+  }
+
+  async onLoadFromFiles() {
+    const jsonFile = document.getElementById('modelJsonFile').files[0];
+    const weightsFile = document.getElementById('modelWeightsFile').files[0];
+
+    if (!jsonFile || !weightsFile) {
+      this.showError('Выберите model.json и weights.bin');
+      return;
+    }
+    try {
+      this.showStatus('Загрузка модели...');
+      if (this.model) this.model.dispose();
+
+      this.model = await tf.loadLayersModel(tf.io.browserFiles([jsonFile, weightsFile]));
+      this.updateModelInfo();
+      this.showStatus('Модель загружена');
+
+    } catch (error) {
+      this.showError(`Ошибка загрузки: ${error.message}`);
+    }
+  }
+
+  onReset() {
+    if (this.model) {
+      this.model.dispose();
+      this.model = null;
+    }
+    this.dataLoader.dispose();
+    this.trainData = null;
+    this.testData = null;
+    this.updateDataStatus(0, 0);
+    this.updateModelInfo();
+    this.clearPreview();
+    this.showStatus('Сброс завершён');
+  }
+
+  toggleVisor() {
+    tfvis.visor().toggle();
+  }
+
+  // CNN классификатор для 10 классов
+  createCNNClassifier() {
+    const model = tf.sequential();
+
+    model.add(tf.layers.conv2d({
+      inputShape: [28, 28, 1],
+      filters: 32,
+      kernelSize: 3,
+      activation: 'relu',
+      padding: 'same'
+    }));
+    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+    model.add(tf.layers.conv2d({
+      filters: 64,
+      kernelSize: 3,
+      activation: 'relu',
+      padding: 'same'
+    }));
+    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+    model.add(tf.layers.flatten());
+    model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+    model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+
+    model.compile({
+      optimizer: tf.train.adam(0.001),
+      loss: 'categoricalCrossentropy',
+      metrics: ['accuracy']
+    });
+
+    model.summary();
+    return model;
+  }
+
+  renderPredictionsPreview(images, trueLabels, predLabels, indices) {
+    const container = document.getElementById('previewContainer');
+    container.innerHTML = '';
+    const count = images.shape[0];
+    for (let i = 0; i < count; i++) {
+      const div = document.createElement('div');
+      const canvas = this.createCanvasFromTensor(images.slice([i, 0, 0, 0], [1, 28, 28, 1]));
+      div.appendChild(canvas);
+      const info = document.createElement('span');
+      info.textContent = `True: ${trueLabels[i]} | Pred: ${predLabels[i]}`;
+      info.style.marginLeft = '12px';
+      div.appendChild(info);
+      container.appendChild(div);
+    }
+  }
+
+  createCanvasFromTensor(tensor) {
+    const [height, width] = tensor.shape.slice(1, 3);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    tf.browser.toPixels(tensor.squeeze(), canvas);
+    return canvas;
+  }
+
+  updateModelInfo() {
+    const infoEl = document.getElementById('modelInfo');
+    if (!this.model) {
+      infoEl.innerHTML = '<h3>Model Info</h3><p>Нет загруженной модели</p>';
+      return;
+    }
+
+    let totalParams = 0;
+    this.model.layers.forEach(layer => {
+      layer.getWeights().forEach(weight => {
+        totalParams += weight.size;
+      });
+    });
+
+    infoEl.innerHTML = `
+      <h3>Model Info</h3>
+      <p>Layers: ${this.model.layers.length}</p>
+      <p>Params: ${totalParams.toLocaleString()}</p>
+    `;
+  }
+
+  updateDataStatus(trainCount, testCount) {
+    const el = document.getElementById('dataStatus');
+    el.innerHTML = `<h3>Data Status</h3><p>Training samples: ${trainCount}</p><p>Test samples: ${testCount}</p>`;
+  }
+
+  showStatus(message) {
+    const logs = document.getElementById('trainingLogs');
+    const entry = document.createElement('div');
+    entry.textContent = `[info] ${message}`;
+    logs.appendChild(entry);
+    logs.scrollTop = logs.scrollHeight;
+  }
+
+  showError(message) {
+    const logs = document.getElementById('trainingLogs');
+    const entry = document.createElement('div');
+    entry.style.color = 'red';
+    entry.textContent = `[error] ${message}`;
+    logs.appendChild(entry);
+    logs.scrollTop = logs.scrollHeight;
+    console.error(message);
+  }
+
+  clearPreview() {
+    const container = document.getElementById('previewContainer');
+    container.innerHTML = '';
+  }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  new MNISTApp();
+});
