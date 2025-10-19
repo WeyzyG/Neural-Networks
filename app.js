@@ -175,10 +175,6 @@ class MNISTApp {
     }
     return num / Math.sqrt(da*db);
   }
-
-  // --- остальные методы: train, evaluate, preview и прочее ---
-  // (оставь неизменными, кроме вызова runEDA)
-  // ...
 }
 
 document.addEventListener('DOMContentLoaded', () => {
