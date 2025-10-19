@@ -20,7 +20,6 @@ class MNISTDataLoader {
                     for (const line of lines) {
                         const values = line.split(',').map(Number);
                         if (values.length !== 785) continue; // label + 784 pixels
-
                         labels.push(values[0]);
                         pixels.push(values.slice(1));
                     }
@@ -37,7 +36,7 @@ class MNISTDataLoader {
                             .reshape([labels.length, 28, 28, 1]);
                     });
 
-                    // One-hot encode labels (Fashion-MNIST: 10 classes)
+                    // One-hot encode labels
                     const ys = tf.tidy(() => {
                         return tf.oneHot(labels, 10);
                     });
@@ -63,23 +62,7 @@ class MNISTDataLoader {
         return this.testData;
     }
 
-    // Add Gaussian noise to images
-    addNoise(images, noiseStd = 0.6) {
-        return tf.tidy(() => {
-            const noise = tf.randomNormal(images.shape, 0, noiseStd);
-            const noisyImages = images.add(noise).clipByValue(0, 1);
-            return noisyImages;
-        });
-    }
-
-    addNoiseDense(images, noiseStd = 0.6) {
-        return tf.tidy(() => {
-            const noise = tf.randomNormal(images.shape, 0, noiseStd);
-            const noisyImages = images.add(noise).clipByValue(0, 1);
-            return noisyImages;
-        });
-    }
-
+    // Split training data into train/validation sets
     splitTrainVal(xs, ys, valRatio = 0.1) {
         return tf.tidy(() => {
             const numVal = Math.floor(xs.shape[0] * valRatio);
@@ -133,14 +116,6 @@ class MNISTDataLoader {
             tempCtx.putImageData(imageData, 0, 0);
 
             ctx.drawImage(tempCanvas, 0, 0, 28 * scale, 28 * scale);
-        });
-    }
-
-    calculatePSNR(original, reconstructed) {
-        return tf.tidy(() => {
-            const mse = reconstructed.sub(original).square().mean();
-            const psnr = tf.scalar(20).mul(tf.scalar(1).log().div(tf.scalar(10).log())).sub(mse.log().div(tf.scalar(10).log()).mul(tf.scalar(10)));
-            return psnr;
         });
     }
 
