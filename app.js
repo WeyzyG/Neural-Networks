@@ -37,7 +37,7 @@ class MNISTApp {
     if (!this.trainData) return;
     const edaDiv = document.getElementById('edaContainer');
     edaDiv.innerHTML = "<h2>EDA анализ тренировочного датасета</h2>";
-
+  
     // 1. Гистограмма распределения классов
     const labels = this.trainData.labels;
     const counts = Array(10).fill(0);
@@ -45,12 +45,33 @@ class MNISTApp {
     let hist = '<b>Распределение классов (label count):</b><br>';
     hist += '<canvas id="edaClassDistributionChart" width="400" height="200"></canvas><br>';
     edaDiv.innerHTML += hist;
-
-    // 4. Проверка на NaN или некорректные лейблы
-    const hasNaN = labels.some(l => Number.isNaN(l)) || Array.from(xsFlat).some(x => Number.isNaN(x));
+  
+    // 2. Корректная пиксельная статистика по вашему формату
+    // xsFlat из тензора, обработка циклами - нет NaN
+    let xsFlatRaw = this.trainData.xs.dataSync ? this.trainData.xs.dataSync() : Array.from(this.trainData.xs);
+    let min = Infinity, max = -Infinity, sum = 0, sum2 = 0, validCount = 0;
+    for (let v of xsFlatRaw) {
+      if (typeof v === 'number' && !isNaN(v) && v >= 0 && v <= 1) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+        sum2 += v * v;
+        validCount += 1;
+      }
+    }
+    if (validCount === 0) {
+      edaDiv.innerHTML += `<b>Пиксельная статистика:</b> <br>Нет валидных данных для подсчета статистики.<br>`;
+    } else {
+      let mean = sum / validCount;
+      let std = Math.sqrt(sum2 / validCount - mean * mean);
+      edaDiv.innerHTML += `<b>Пиксельная статистика:</b><br>min: ${min.toFixed(4)}, max: ${max.toFixed(4)}, mean: ${mean.toFixed(4)}, std: ${std.toFixed(4)}<br>`;
+    }
+  
+    // 4. Проверка на NaN или битые значения в labels и пикселях
+    const hasNaN = labels.some(l => Number.isNaN(l)) || xsFlatRaw.some(x => typeof x !== "number" || isNaN(x));
     edaDiv.innerHTML += `<br><b>Отсутствующие значения или битые записи:</b> ${hasNaN ? "Обнаружены!" : "Нет"}<br>`;
-
-    // 5. (опционально) Корреляция между классами
+  
+    // 5. (Опционально) Корреляция между классами
     let corrBlock = '';
     const meansPerClass = [];
     for(let c = 0; c < 10; ++c){
@@ -58,7 +79,11 @@ class MNISTApp {
       if (idxs.length > 0){
         let sum = 0;
         for (let idx of idxs){
-          sum += this.trainData.xs.slice([idx,0,0,0],[1,28,28,1]).mean().dataSync()[0];
+          // считаем среднюю интенсивность через цикл, не .mean()
+          let pixels = Array.from(this.trainData.xs.slice([idx,0,0,0],[1,28,28,1]).dataSync());
+          let pixelsFiltered = pixels.filter(v => typeof v === 'number' && !isNaN(v) && v >= 0 && v <= 1);
+          let pixelsMean = (pixelsFiltered.length > 0) ? pixelsFiltered.reduce((a,b)=>a+b,0)/pixelsFiltered.length : 0;
+          sum += pixelsMean;
         }
         meansPerClass.push(sum/idxs.length);
       } else meansPerClass.push(0);
@@ -66,10 +91,10 @@ class MNISTApp {
     const corr = meansPerClass.map((v,i,arr) => ((i<arr.length-1)? (Math.abs(v-arr[i+1])).toFixed(4) : "-")).join(', ');
     corrBlock += `<b>Корреляция средних интенсивностей по соседним классам:</b> ${corr}<br>`;
     edaDiv.innerHTML += corrBlock;
-
+  
     // 6. Shape данных
     edaDiv.innerHTML += `<b>Shape данных:</b> xs: ${this.trainData.xs.shape.join(', ')}, ys: ${this.trainData.ys.shape.join(', ')} <br>`;
-
+  
     // отрисовка гистограммы
     setTimeout(() => {
       const ctx = document.getElementById('edaClassDistributionChart').getContext('2d');
@@ -87,6 +112,7 @@ class MNISTApp {
       });
     }, 0);
   }
+
   // -------------------------------------
 
   async onLoadData() {
