@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MNIST Data & Denoiser Training</title>
+    <title>Fashion istems classification Data & CNN Training</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
     <style>
@@ -169,7 +169,7 @@
     </style>
 </head>
 <body>
-    <h1>MNIST Data &amp; Denoiser Training</h1>
+    <h1>Fashion istems classification Data &amp; CNN Training</h1>
 
     <section class="file-inputs" aria-label="Data file upload">
         <label for="trainFile">Upload Train CSV
@@ -186,16 +186,16 @@
             <h2>Training Logs</h2>
             <div id="trainingLogs">No logs yet...</div>
 
-            <h2>Denoising Preview</h2>
+            <h2>Prediction Preview</h2>
             <div id="previewContainer" aria-live="polite"></div>
         </section>
 
         <section class="left-column" aria-label="Controls and status">
             <h2>Model Controls</h2>
             <div id="controls">
-                <button id="trainBtn" title="Train the denoiser">Train</button>
+                <button id="trainBtn" title="Train the model">Train</button>
                 <button id="evaluateBtn" title="Evaluate the model">Evaluate</button>
-                <button id="testFiveBtn" title="Test denoising with 5 samples">Test 5 Samples</button>
+                <button id="testFiveBtn" title="Test with 5 samples">Test 5 Samples</button>
                 <button id="saveModelBtn" title="Save the trained model">Save Model</button>
                 <button id="resetBtn" title="Reset the app">Reset</button>
                 <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
