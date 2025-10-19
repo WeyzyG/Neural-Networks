@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fashion Items Classification Data & CNN Training</title>
+    <title>Fashion istems classification Data & CNN Training</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
     <style>
@@ -53,7 +53,7 @@
         }
         button {
             cursor: pointer;
-            background-color: #007BFF;
+            background-color: #007BFF; /* синий цвет для ключевых кнопок */
             border: none;
             padding: 12px 22px;
             font-size: 1.05rem;
@@ -74,18 +74,6 @@
             box-shadow: none;
             color: #666666;
         }
-        #edaContainer {
-            background: #fafafb;
-            border: 1px solid #ddd;
-            padding: 18px 16px;
-            border-radius: 12px;
-            box-shadow: 0 3px 8px rgb(0 0 0 / 0.04);
-            margin-bottom: 25px;
-            margin-top: 20px;
-        }
-        #edaImagesGrid { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px;}
-        #edaImagesGrid canvas { max-width:80px; max-height:80px; border-radius:6px; border:1.5px solid #ccc; background:#fff;}
-        #edaClassDistribution { margin-top:14px; }
         .container {
             display: grid;
             grid-template-columns: 2fr 3fr;
@@ -181,7 +169,8 @@
     </style>
 </head>
 <body>
-    <h1>Fashion Items Classification Data &amp; CNN Training</h1>
+    <h1>Fashion istems classification Data &amp; CNN Training</h1>
+
     <section class="file-inputs" aria-label="Data file upload">
         <label for="trainFile">Upload Train CSV
             <input type="file" id="trainFile" accept=".csv" />
@@ -192,20 +181,15 @@
         <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
     </section>
 
-    <div id="edaContainer" class="status">
-      <h3>Data EDA Overview</h3>
-      <div id="edaStats"></div>
-      <div id="edaClassDistribution"></div>
-      <div id="edaImagesGrid"></div>
-    </div>
-
     <div class="container">
         <section class="right-column" aria-label="Training logs and preview">
             <h2>Training Logs</h2>
             <div id="trainingLogs">No logs yet...</div>
+
             <h2>Prediction Preview</h2>
             <div id="previewContainer" aria-live="polite"></div>
         </section>
+
         <section class="left-column" aria-label="Controls and status">
             <h2>Model Controls</h2>
             <div id="controls">
@@ -216,6 +200,7 @@
                 <button id="resetBtn" title="Reset the app">Reset</button>
                 <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
             </div>
+
             <h2>Load Existing Model</h2>
             <div id="model-loaders">
                 <label for="modelJsonFile">Model JSON
@@ -226,14 +211,17 @@
                 </label>
                 <button id="loadModelBtn" title="Load existing model">Load Model</button>
             </div>
+
             <div id="dataStatus" class="status" aria-live="polite">
                 <h3>Data Status</h3>
                 <p>No data loaded</p>
             </div>
+            
             <div id="modelInfo" class="status" aria-live="polite">
                 <h3>Model Info</h3>
                 <p>No model loaded</p>
             </div>
+            
         </section>
     </div>
 
