@@ -3,112 +3,145 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fashion Items Classification Data & CNN Training</title>
+    <title>Fashion Items Classification & CNN Training</title>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            margin: 30px auto;
+            margin: 0;
+            background: linear-gradient(120deg, #e3f1ff 0%, #f6eafb 100%);
+            color: #374151;
+            min-height: 100vh;
+        }
+        .wrapper {
             max-width: 1200px;
-            background-color: #ffffff;
-            color: #333333;
-            line-height: 1.5;
+            margin: 36px auto 30px auto;
+            padding: 18px 24px;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 6px 24px rgb(0 88 190 / 7%);
         }
         h1 {
             font-weight: 700;
-            color: #222222;
+            color: #42567a;
             text-align: center;
-            margin-bottom: 30px;
-            letter-spacing: 0.05em;
+            margin-bottom: 26px;
+            font-size: 2.3rem;
+            letter-spacing: 0.03em;
         }
-        h2 {
-            font-weight: 600;
-            color: #222222;
-            border-bottom: 2px solid #ccc;
-            padding-bottom: 6px;
-            margin-top: 30px;
+        .subtitle {
+            text-align: center;
+            font-size:1.1rem;
             margin-bottom: 18px;
+            color:#5c6e8a;
+            letter-spacing:0.02em;
         }
         .file-inputs {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
+            display: flex;
             align-items: center;
-            margin-bottom: 40px;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            background: linear-gradient(90deg,#f0f4fc 74%,rgb(232,238,253)100%);
+            padding: 18px 0 14px 0;
+            border-radius: 12px;
+            margin-bottom: 32px;
+            box-shadow: 0 2px 8px rgba(85,100,255,0.05);
+        }
+        .file-block {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
+            min-width: 220px;
         }
         label {
             font-weight: 600;
-            font-size: 1rem;
-            color: #444;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
+            font-size: 0.98rem;
+            color: #42567a;
+            display: block;
         }
         input[type="file"] {
             padding: 6px 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 0.95rem;
+            border: 1px solid #9bb8e7;
+            border-radius: 6px;
+            background:#f6fafd;
+            font-size: 0.96rem;
+        }
+        #loadDataBtn {
+            padding: 12px 32px;
         }
         button {
             cursor: pointer;
-            background-color: #007BFF;
+            background: linear-gradient(90deg,#4064eb 70%,#6f5eed 100%);
             border: none;
-            padding: 12px 22px;
-            font-size: 1.05rem;
-            border-radius: 8px;
+            padding: 11px 22px;
+            font-size: 1.07rem;
+            border-radius: 30px;
             color: #fff;
             font-weight: 600;
-            box-shadow: 0 3px 6px rgb(0 123 255 / 0.3);
-            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 3px 16px rgb(56 86 235 / 18%);
+            transition: background 0.3s, box-shadow 0.3s;
         }
         button:hover, button:focus {
-            background-color: #0056b3;
-            box-shadow: 0 4px 8px rgb(0 86 179 / 0.5);
+            background: linear-gradient(90deg,#2946c7 70%, #6157e5 100%);
+            box-shadow: 0 8px 24px rgb(56 86 235 / 24%);
             outline: none;
         }
         button[disabled] {
-            background-color: #cccccc;
+            background: #cccccc;
             cursor: not-allowed;
             box-shadow: none;
             color: #666666;
         }
         #edaContainer {
-            background: #fafafb;
-            border: 1px solid #ddd;
-            padding: 18px 16px;
-            border-radius: 12px;
-            box-shadow: 0 3px 8px rgb(0 0 0 / 0.04);
-            margin-bottom: 25px;
+            background: linear-gradient(100deg,#f6fbff 79%,#f4e8fd 100%);
+            border: 1px solid #e5e8ef;
+            padding: 25px 18px 20px 18px;
+            border-radius: 15px;
+            box-shadow: 0 2px 8px rgb(0 0 0 / 0.05);
+            margin-bottom: 32px;
             margin-top: 20px;
         }
-        #edaImagesGrid { display:flex; flex-wrap:wrap; gap:14px; margin-top:12px;}
-        #edaImagesGrid canvas { max-width:80px; max-height:80px; border-radius:6px; border:1.5px solid #ccc; background:#fff;}
-        #edaClassDistribution { margin-top:14px; }
+        #edaContainer h2 {
+            font-size: 1.5rem;
+            color: #42567a;
+            border-bottom: 1.5px solid #e5e8ef;
+            margin-bottom: 13px;
+        }
         .container {
             display: grid;
-            grid-template-columns: 2fr 3fr;
+            grid-template-columns: 2.2fr 3fr;
             gap: 40px;
             align-items: start;
         }
-        .left-column {
+        .left-column, .right-column {
             display: flex;
             flex-direction: column;
-            gap: 25px;
-            padding-right: 15px;
-            border-right: 2px solid #eee;
+            gap: 28px;
+        }
+        .left-column {
+            padding-right: 18px;
+            border-right: 2px solid #f2f4fa;
+        }
+        .section-title {
+            font-size:1.15rem;
+            font-weight:600;
+            letter-spacing:0.04em;
+            color:#4064eb;
         }
         #controls {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 14px;
+            gap: 16px;
+            margin-bottom:4px;
         }
         #model-loaders {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 13px;
         }
         #model-loaders label {
             flex-direction: row;
@@ -118,38 +151,34 @@
             font-size: 1rem;
         }
         .status {
-            background: #fefefe;
-            border: 1px solid #ddd;
-            padding: 18px 22px;
-            border-radius: 12px;
-            box-shadow: 0 3px 8px rgb(0 0 0 / 0.05);
-            color: #444;
+            background: #f7faff;
+            border: 1px solid #e5e8ef;
+            padding: 16px 20px 10px 20px;
+            border-radius: 10px;
+            color: #374151;
             font-size: 1rem;
-            min-height: 90px;
+            min-height: 70px;
             overflow-y: auto;
+            box-shadow: 0 1px 4px rgb(0 88 190 / 6%);
         }
         .status h3 {
             margin-top: 0;
             font-weight: 600;
             letter-spacing: 0.02em;
-            color: #222222;
-        }
-        .right-column {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
+            color: #42567a;
+            font-size:1.08rem;
         }
         #trainingLogs {
-            background: #fafafa;
-            border: 1px solid #ddd;
-            padding: 12px 16px;
-            border-radius: 10px;
+            background: #f9f9fc;
+            border: 1px solid #e5e8ef;
+            padding: 13px 15px;
+            border-radius: 8px;
             white-space: pre-wrap;
             font-family: "Courier New", Courier, monospace;
-            font-size: 0.95rem;
+            font-size: 0.97rem;
             color: #555555;
             min-height: 180px;
-            max-height: 350px;
+            max-height: 340px;
             overflow-y: auto;
             box-shadow: inset 0 0 6px #ddd;
         }
@@ -157,82 +186,123 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
             gap: 15px;
-            background-color: #fff;
+            background: linear-gradient(90deg,#eaf6ff 74%,#f8f5ff 100%);
             padding: 15px;
-            border-radius: 12px;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 8px rgb(0 0 0 / 0.03);
+            border-radius: 10px;
+            border: 1px solid #e5e8ef;
+            box-shadow: 0 2px 8px rgb(0 88 190 / 0.04);
         }
         canvas {
-            border: 1.5px solid #ccc;
+            border: 1.5px solid #e0e3eb;
             image-rendering: pixelated;
             border-radius: 8px;
-            background-color: #fff;
+            background: #fff;
             width: 100%;
             height: auto;
             aspect-ratio: 1;
             object-fit: contain;
-            box-shadow: 0 2px 4px rgb(0 0 0 / 0.05);
+            box-shadow: 0 2px 8px rgb(72 88 235 / 5%);
             transition: border-color 0.3s ease;
         }
         canvas:hover {
-            border-color: #007BFF;
-            box-shadow: 0 4px 10px rgb(0 123 255 / 0.3);
+            border-color: #42567a;
+            box-shadow: 0 4px 16px rgb(56 86 235 / 10%);
+        }
+        @media (max-width:950px) {
+            .container {grid-template-columns: 1fr;}
+            .left-column {border-right:none;}
         }
     </style>
 </head>
 <body>
-    <h1>Fashion Items Classification Data &amp; CNN Training</h1>
-    <section class="file-inputs" aria-label="Data file upload">
-        <label for="trainFile">Upload Train CSV
-            <input type="file" id="trainFile" accept=".csv" />
-        </label>
-        <label for="testFile">Upload Test CSV
-            <input type="file" id="testFile" accept=".csv" />
-        </label>
-        <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
-    </section>
-    
-    <div id="edaContainer"></div>
-    
-    <div class="container">
-        <section class="right-column" aria-label="Training logs and preview">
-            <h2>Training Logs</h2>
-            <div id="trainingLogs">No logs yet...</div>
-            <h2>Prediction Preview</h2>
-            <div id="previewContainer" aria-live="polite"></div>
-        </section>
-        <section class="left-column" aria-label="Controls and status">
-            <h2>Model Controls</h2>
-            <div id="controls">
-                <button id="trainBtn" title="Train the model">Train</button>
-                <button id="evaluateBtn" title="Evaluate the model">Evaluate</button>
-                <button id="testFiveBtn" title="Test with 5 samples">Test 5 Samples</button>
-                <button id="saveModelBtn" title="Save the trained model">Save Model</button>
-                <button id="resetBtn" title="Reset the app">Reset</button>
-                <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
-            </div>
-            <h2>Load Existing Model</h2>
-            <div id="model-loaders">
-                <label for="modelJsonFile">Model JSON
-                    <input type="file" id="modelJsonFile" accept=".json" />
-                </label>
-                <label for="modelWeightsFile">Model Weights
-                    <input type="file" id="modelWeightsFile" accept=".bin" />
-                </label>
-                <button id="loadModelBtn" title="Load existing model">Load Model</button>
-            </div>
-            <div id="dataStatus" class="status" aria-live="polite">
-                <h3>Data Status</h3>
-                <p>No data loaded</p>
-            </div>
-            <div id="modelInfo" class="status" aria-live="polite">
-                <h3>Model Info</h3>
-                <p>No model loaded</p>
-            </div>
-        </section>
-    </div>
+    <div class="wrapper">
+        <h1>Fashion Items Classificator (by CNN)</h1>
+        <div class="subtitle">Deep Learning for classification of fashion items for marketplaces. &#128087; Train & Explore class distributions, sample statistics, model results.</div>
+		<div class="about-biz-section">
+			<div class="biz-cards">
+				<div class="biz-card">
+					<img src="https://upload.wikimedia.org/wikipedia/commons/2/2b/Ozon-logo-2020.png" alt="Ozon" height="28">
+					<span>Ozon</span>
+				</div>
+				<div class="biz-card">
+					<img src="https://avito.ru/static/images/logos/avito.svg" alt="Avito" height="28">
+					<span>Avito</span>
+				</div>
+				<div class="biz-card">
+					<img src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Wildberries_logo.svg" alt="Wildberries" height="28">
+					<span>Wildberries</span>
+				</div>
+				<div class="biz-card">
+					<img src="https://yastatic.net/s3/home-static/_/18368/6e6a/3e6e358a.png" alt="Yandex Market" height="28">
+					<span>Yandex Market</span>
+				</div>
+				<div class="biz-card">
+					<img src="https://logos-world.net/wp-content/uploads/2021/08/Lamoda-Logo.png" alt="Lamoda" height="28">
+					<span>Lamoda</span>
+				</div>
+			</div>
+			<div class="about-biz-text">
+				<p>
+					This application helps major marketplaces and fashion retailers digitize the entire customer journey, from product discovery to seamless review and fraud reduction.
+					<br><br>By automatically recognizing clothing categories in product photos, it streamlines catalog management, prevents fraudulent listings, and simplifies feedback and review processing for sellers.
+					<br><br>Sellers benefit from faster onboarding and more accurate product listings, while buyers enjoy authentic feedback and a more trustworthy shopping experience.
+					<br><br>As a result, both companies and customers see improved satisfaction, efficiency, and trust in the services provided.
+				</p>
+			</div>
+		</div>
 
+        <section class="file-inputs" aria-label="Data file upload">
+            <div class="file-block">
+                <label for="trainFile">Upload Train data (CSV)</label>
+                <input type="file" id="trainFile" accept=".csv" />
+            </div>
+            <div class="file-block">
+                <label for="testFile">Upload Test data (CSV)</label>
+                <input type="file" id="testFile" accept=".csv" />
+            </div>
+            <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
+        </section>
+        
+        <div id="edaContainer" aria-label="Exploratory Data Analysis results"></div>
+        
+        <div class="container">
+            <section class="right-column" aria-label="Training logs and preview">
+                <span class="section-title">Training Logs</span>
+                <div id="trainingLogs">No logs yet...</div>
+                <span class="section-title">Prediction Preview</span>
+                <div id="previewContainer" aria-live="polite"></div>
+            </section>
+            <section class="left-column" aria-label="Controls and status">
+                <span class="section-title">Model Controls</span>
+                <div id="controls">
+                    <button id="trainBtn" title="Train the model">Train</button>
+                    <button id="evaluateBtn" title="Evaluate the model">Evaluate</button>
+                    <button id="testFiveBtn" title="Test with 5 samples">Test 5 Samples</button>
+                    <button id="saveModelBtn" title="Save the trained model">Save Model</button>
+                    <button id="resetBtn" title="Reset the app">Reset</button>
+                    <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
+                </div>
+                <span class="section-title">Load Existing Model</span>
+                <div id="model-loaders">
+                    <label for="modelJsonFile">Model JSON
+                        <input type="file" id="modelJsonFile" accept=".json" />
+                    </label>
+                    <label for="modelWeightsFile">Model Weights
+                        <input type="file" id="modelWeightsFile" accept=".bin" />
+                    </label>
+                    <button id="loadModelBtn" title="Load existing model">Load Model</button>
+                </div>
+                <div id="dataStatus" class="status" aria-live="polite">
+                    <h3>Data Status</h3>
+                    <p>No data loaded</p>
+                </div>
+                <div id="modelInfo" class="status" aria-live="polite">
+                    <h3>Model Info</h3>
+                    <p>No model loaded</p>
+                </div>
+            </section>
+        </div>
+    </div>
     <script src="data-loader.js"></script>
     <script src="app.js"></script>
 </body>
