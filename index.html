@@ -15,6 +15,13 @@
             color: #374151;
             min-height: 100vh;
         }
+        .divider {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, #c3dafe 65%, #e2e8f0 100%);
+            margin: 32px 0 22px 0;
+            border-radius: 2px;
+        }
         .wrapper {
             max-width: 1200px;
             margin: 36px auto 30px auto;
@@ -35,8 +42,55 @@
             text-align: center;
             font-size:1.1rem;
             margin-bottom: 18px;
-            color:#5c6e8a;
+            color: #42567a;
             letter-spacing:0.02em;
+        }
+        .about-biz-section {
+            padding:22px 6px 14px 6px;
+            background: linear-gradient(94deg, #f0f4fc 88%, #f5e5fd 100%);
+            border-radius: 14px;
+            box-shadow: 0 2px 14px rgba(50,70,180,0.035);
+            margin-bottom:22px;
+        }
+        .biz-cards {
+            display: flex;
+            gap: 34px;
+            justify-content: center;
+            margin-bottom: 3px;
+        }
+        .biz-card {
+            display: flex;
+            align-items: center;
+            background:#f8f8ff;
+            border-radius: 9px;
+            box-shadow: 0 2px 8px rgba(85,100,255,0.09);
+            padding: 8px 22px 8px 14px;
+            gap: 10px;
+            min-width: 95px;
+        }
+        .potential-buyers-title {
+            text-align: center;
+            font-weight:600;
+            letter-spacing:0.04em;
+            color: #2982dd;
+            margin-bottom:9px;
+            font-size:1.04em;
+        }
+        .about-biz-text {
+            font-size:1.09rem;
+            color: #42567a;
+            margin-top:7px;
+        }
+        .about-biz-text b, .about-biz-text .strong {
+            font-weight:700;
+            color: #42567a;
+        }
+        .about-biz-text .highlight {
+            background: #f1f6ff;
+            border-radius: 5px;
+            padding:4px 7px;
+            font-weight: bold;
+            color:#4064eb;
         }
         .file-inputs {
             display: flex;
@@ -217,58 +271,58 @@
 <body>
     <div class="wrapper">
         <h1>Fashion Items Classificator (by CNN)</h1>
-        <div class="subtitle">Deep Learning for classification of fashion items for marketplaces. &#128087; Train & Explore class distributions, sample statistics, model results.</div>
-		<div class="about-biz-section">
-			<div class="biz-cards">
-				<div class="biz-card">
-					<img src="https://upload.wikimedia.org/wikipedia/commons/2/2b/Ozon-logo-2020.png" alt="Ozon" height="28">
-					<span>Ozon</span>
-				</div>
-				<div class="biz-card">
-					<img src="https://avito.ru/static/images/logos/avito.svg" alt="Avito" height="28">
-					<span>Avito</span>
-				</div>
-				<div class="biz-card">
-					<img src="https://upload.wikimedia.org/wikipedia/commons/0/0a/Wildberries_logo.svg" alt="Wildberries" height="28">
-					<span>Wildberries</span>
-				</div>
-				<div class="biz-card">
-					<img src="https://yastatic.net/s3/home-static/_/18368/6e6a/3e6e358a.png" alt="Yandex Market" height="28">
-					<span>Yandex Market</span>
-				</div>
-				<div class="biz-card">
-					<img src="https://logos-world.net/wp-content/uploads/2021/08/Lamoda-Logo.png" alt="Lamoda" height="28">
-					<span>Lamoda</span>
-				</div>
-			</div>
-			<div class="about-biz-text">
-				<p>
-					This application helps major marketplaces and fashion retailers digitize the entire customer journey, from product discovery to seamless review and fraud reduction.
-					<br><br>By automatically recognizing clothing categories in product photos, it streamlines catalog management, prevents fraudulent listings, and simplifies feedback and review processing for sellers.
-					<br><br>Sellers benefit from faster onboarding and more accurate product listings, while buyers enjoy authentic feedback and a more trustworthy shopping experience.
-					<br><br>As a result, both companies and customers see improved satisfaction, efficiency, and trust in the services provided.
-				</p>
-			</div>
-		</div>
+        <div class="subtitle">
+            Deep Learning for <b>fashion product classification</b> and marketplace automation.<br>
+            <span class="strong">Upload your data, train your model, explore class distributions, and view instant results.</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="about-biz-section">
+            <div class="potential-buyers-title">Potential Clients (Marketplaces)</div>
+            <div class="biz-cards">
+                <div class="biz-card"><img src="ozon.png" alt="Ozon" height="28"></div>
+                <div class="biz-card"><img src="avito.png" alt="Avito" height="28"></div>
+                <div class="biz-card"><img src="wb.png" alt="Wildberries" height="28"></div>
+                <div class="biz-card"><img src="ym.png" alt="Yandex Market" height="28"></div>
+                <div class="biz-card"><img src="lamoda.png" alt="Lamoda" height="28"></div>
+            </div>
+            <div class="about-biz-text">
+                <b class="strong">Unlock the future of digital fashion sales and customer experience!</b><br>
+                <ul>
+                  <li><span class="strong">Boost trust & minimize fraud:</span> <span>Automatically detect clothing categories from photos to <span class="highlight">instantly block fake and suspicious listings before they reach buyers</span>.</span></li>
+                  <li><span class="strong">Instant cataloguing & lower manual effort:</span> <span>Smart automation for sellers and staff — <span class="highlight">classify, label, and organize products with a single click</span>.</span></li>
+                  <li><span class="strong">Ensure genuine feedback:</span> <span><span class="highlight">Reviews and ratings are always mapped to the right category</span> for higher content relevance and trust.</span></li>
+                  <li><span class="strong">Empower buyers & sellers:</span> <span> <span class="highlight">Fast and confident</span> product search, <span class="highlight">higher sales & better conversion</span>, transparent performance stats!</span></li>
+                </ul>
+                <div style="margin-top:11px;">
+                  <span class="highlight">
+                    <b>Result:</b> A seamless, secure, and visually stunning online shopping journey. Maximum conversion, reduced operational costs, and loyalty growth for leading companies.
+                  </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="divider"></div>
 
         <section class="file-inputs" aria-label="Data file upload">
             <div class="file-block">
-                <label for="trainFile">Upload Train data (CSV)</label>
+                <label for="trainFile">Upload train data (CSV)</label>
                 <input type="file" id="trainFile" accept=".csv" />
             </div>
             <div class="file-block">
-                <label for="testFile">Upload Test data (CSV)</label>
+                <label for="testFile">Upload test data (CSV)</label>
                 <input type="file" id="testFile" accept=".csv" />
             </div>
             <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
         </section>
-        
+
         <div id="edaContainer" aria-label="Exploratory Data Analysis results"></div>
-        
+
         <div class="container">
             <section class="right-column" aria-label="Training logs and preview">
                 <span class="section-title">Training Logs</span>
-                <div id="trainingLogs">No logs yet...</div>
+                <div id="trainingLogs">Logs will appear once training starts...</div>
                 <span class="section-title">Prediction Preview</span>
                 <div id="previewContainer" aria-live="polite"></div>
             </section>
@@ -277,10 +331,10 @@
                 <div id="controls">
                     <button id="trainBtn" title="Train the model">Train</button>
                     <button id="evaluateBtn" title="Evaluate the model">Evaluate</button>
-                    <button id="testFiveBtn" title="Test with 5 samples">Test 5 Samples</button>
+                    <button id="testFiveBtn" title="Test with 5 samples">Test 5 samples</button>
                     <button id="saveModelBtn" title="Save the trained model">Save Model</button>
                     <button id="resetBtn" title="Reset the app">Reset</button>
-                    <button id="toggleVisorBtn" title="Toggle visor visualization">Toggle Visor</button>
+                    <button id="toggleVisorBtn" title="Toggle visor visualization">Visualization</button>
                 </div>
                 <span class="section-title">Load Existing Model</span>
                 <div id="model-loaders">
