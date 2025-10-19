@@ -1,3 +1,16 @@
+const FASHION_LABELS = [
+  'T-shirt/top',    // 0
+  'Trouser',        // 1
+  'Pullover',       // 2
+  'Dress',          // 3
+  'Coat',           // 4
+  'Sandal',         // 5
+  'Shirt',          // 6
+  'Sneaker',        // 7
+  'Bag',            // 8
+  'Ankle boot'      // 9
+];
+
 class MNISTApp {
   constructor() {
     this.dataLoader = new MNISTDataLoader();
@@ -233,7 +246,7 @@ class MNISTApp {
       const canvas = this.createCanvasFromTensor(images.slice([i, 0, 0, 0], [1, 28, 28, 1]));
       div.appendChild(canvas);
       const info = document.createElement('span');
-      info.textContent = `True: ${trueLabels[i]} | Pred: ${predLabels[i]}`;
+      info.textContent = `True: ${FASHION_LABELS[trueLabels[i]]} | Pred: ${FASHION_LABELS[predLabels[i]]}`;
       info.style.marginLeft = '12px';
       div.appendChild(info);
       container.appendChild(div);
