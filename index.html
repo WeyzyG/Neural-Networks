@@ -181,6 +181,13 @@
         <button id="loadDataBtn" aria-label="Load Data">Load Data</button>
     </section>
 
+    <div id="edaContainer" class="status" style="margin-bottom:24px;">
+      <h3>Data EDA Overview</h3>
+      <div id="edaStats"></div>
+      <div id="edaClassDistribution" style="margin-top:10px;"></div>
+      <div id="edaImagesGrid" style="margin-top:14px; display:flex; flex-wrap:wrap; gap:12px;"></div>
+    </div>
+
     <div class="container">
         <section class="right-column" aria-label="Training logs and preview">
             <h2>Training Logs</h2>
@@ -215,13 +222,6 @@
             <div id="dataStatus" class="status" aria-live="polite">
                 <h3>Data Status</h3>
                 <p>No data loaded</p>
-            </div>
-            
-            <div id="edaContainer" class="status">
-              <h3>Data EDA Overview</h3>
-              <div id="edaStats"></div>
-              <div id="edaClassDistribution"></div>
-              <div id="edaImagesGrid" style="margin-top: 10px;"></div>
             </div>
             
             <div id="modelInfo" class="status" aria-live="polite">
