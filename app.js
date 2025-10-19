@@ -194,34 +194,57 @@ class MNISTApp {
     tfvis.visor().toggle();
   }
 
-  createCNNClassifier() {
-    const model = tf.sequential();
-    model.add(tf.layers.conv2d({
-      inputShape: [28, 28, 1],
-      filters: 32,
-      kernelSize: 3,
-      activation: 'relu',
-      padding: 'same'
-    }));
-    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
-    model.add(tf.layers.conv2d({
-      filters: 64,
-      kernelSize: 3,
-      activation: 'relu',
-      padding: 'same'
-    }));
-    model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
-    model.add(tf.layers.flatten());
-    model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
-    model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
-    model.compile({
-      optimizer: tf.train.adam(0.001),
-      loss: 'categoricalCrossentropy',
-      metrics: ['accuracy']
-    });
-    model.summary();
-    return model;
-  }
+createCNNClassifier() {
+  const model = tf.sequential();
+
+  model.add(tf.layers.conv2d({
+    inputShape: [28, 28, 1],
+    filters: 32,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.batchNormalization());
+  model.add(tf.layers.conv2d({
+    filters: 32,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+  model.add(tf.layers.dropout({ rate: 0.25 }));
+
+  model.add(tf.layers.conv2d({
+    filters: 64,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.batchNormalization());
+  model.add(tf.layers.conv2d({
+    filters: 64,
+    kernelSize: 3,
+    activation: 'relu',
+    padding: 'same'
+  }));
+  model.add(tf.layers.maxPooling2d({ poolSize: [2, 2] }));
+  model.add(tf.layers.dropout({ rate: 0.25 }));
+
+  model.add(tf.layers.flatten());
+  model.add(tf.layers.dense({ units: 256, activation: 'relu' }));
+  model.add(tf.layers.dropout({ rate: 0.5 }));
+
+  model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
+
+  model.compile({
+    optimizer: tf.train.adam(0.001),
+    loss: 'categoricalCrossentropy',
+    metrics: ['accuracy']
+  });
+
+  model.summary();
+  return model;
+}
 
   renderPredictionsPreview(images, trueLabels, predLabels) {
     const container = document.getElementById('previewContainer');
