@@ -43,29 +43,8 @@ class MNISTApp {
     const counts = Array(10).fill(0);
     labels.forEach(lbl => counts[lbl]++);
     let hist = '<b>Распределение классов (label count):</b><br>';
-    hist += '<canvas id="edaClassDistributionChart" width="600" height="300"></canvas><br>';
+    hist += '<canvas id="edaClassDistributionChart" width="400" height="200"></canvas><br>';
     edaDiv.innerHTML += hist;
-
-    // 2. Статистика по интенсивности
-    let xsFlatRaw = this.trainData.xs.dataSync
-      ? this.trainData.xs.dataSync()
-      : Array.from(this.trainData.xs.flat ? this.trainData.xs.flat() : this.trainData.xs);
-    
-    // Фильтруем только валидные значения от 0 до 1
-    let xsFlat = Array.from(xsFlatRaw).filter(v => typeof v === 'number' && !isNaN(v) && v >= 0 && v <= 1);
-    
-    if (xsFlat.length === 0) {
-      edaDiv.innerHTML += `<b>Пиксельная статистика:</b> <br>
-        Нет валидных данных для подсчета статистики.<br>`;
-    } else {
-      let min = Math.min(...xsFlat);
-      let max = Math.max(...xsFlat);
-      let sum = xsFlat.reduce((a,b) => a+b, 0);
-      let mean = sum / xsFlat.length;
-      let std = Math.sqrt(xsFlat.map(x => Math.pow(x-mean,2)).reduce((a,b)=>a+b,0) / xsFlat.length);
-      edaDiv.innerHTML += `<b>Пиксельная статистика:</b><br>
-        min: ${min.toFixed(4)}, max: ${max.toFixed(4)}, mean: ${mean.toFixed(4)}, std: ${std.toFixed(4)}<br>`;
-    }
 
     // 4. Проверка на NaN или некорректные лейблы
     const hasNaN = labels.some(l => Number.isNaN(l)) || Array.from(xsFlat).some(x => Number.isNaN(x));
