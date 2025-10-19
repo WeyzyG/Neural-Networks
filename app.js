@@ -37,46 +37,43 @@ class MNISTApp {
     try {
       const trainFile = document.getElementById('trainFile').files[0];
       const testFile = document.getElementById('testFile').files[0];
-
       if (!trainFile || !testFile) {
-        this.showError('Выберите train и test CSV файлы');
+        this.showError('Select train and test CSV files');
         return;
       }
-
-      this.showStatus('Загрузка тренировочных данных...');
+      this.showStatus('Loading training data...');
       const trainData = await this.dataLoader.loadTrainFromFiles(trainFile);
-
-      this.showStatus('Загрузка тестовых данных...');
+      this.showStatus('Loading test data...');
       const testData = await this.dataLoader.loadTestFromFiles(testFile);
 
       this.trainData = trainData;
       this.testData = testData;
 
       this.updateDataStatus(trainData.count, testData.count);
-      this.showStatus('Данные загружены');
+      this.showStatus('Data loaded');
       this.showStatus(`Train shape: ${trainData.xs.shape}, Test shape: ${testData.xs.shape}`);
-      this.showStatus(`Диапазон данных - Min: ${trainData.xs.min().dataSync()[0].toFixed(3)}, Max: ${trainData.xs.max().dataSync()[0].toFixed(3)}`);
+      this.showStatus(`Data range - Min: ${trainData.xs.min().dataSync()[0].toFixed(3)}, Max: ${trainData.xs.max().dataSync()[0].toFixed(3)}`);
     } catch (error) {
-      this.showError(`Ошибка загрузки: ${error.message}`);
+      this.showError(`Load error: ${error.message}`);
     }
   }
 
   async onTrain() {
     if (!this.trainData) {
-      this.showError('Сначала загрузите тренировочные данные');
+      this.showError('Load train data first');
       return;
     }
     if (this.isTraining) {
-      this.showError('Обучение уже запущено');
+      this.showError('Training already started');
       return;
     }
     try {
       this.isTraining = true;
-      this.showStatus('Создание CNN классификатора...');
+      this.showStatus('Building Fashion-MNIST classifier...');
       this.model = this.createCNNClassifier();
       this.updateModelInfo();
 
-      this.showStatus('Запуск обучения...');
+      this.showStatus('Training...');
       const startTime = Date.now();
       const history = await this.model.fit(this.trainData.xs, this.trainData.ys, {
         epochs: 5,
@@ -93,11 +90,9 @@ class MNISTApp {
       const duration = (Date.now() - startTime) / 1000;
       const finalLoss = history.history.loss[history.history.loss.length - 1];
       const finalAcc = (history.history.val_acc || history.history.val_accuracy)[history.history.val_loss.length - 1];
-      this.showStatus(`Обучение закончено за ${duration.toFixed(1)}s, финальная loss: ${finalLoss.toFixed(6)}, val acc: ${finalAcc.toFixed(3)}`);
-
+      this.showStatus(`Training done in ${duration.toFixed(1)}s, final loss: ${finalLoss.toFixed(6)}, val acc: ${finalAcc.toFixed(3)}`);
     } catch (error) {
-      this.showError(`Ошибка обучения: ${error.message}`);
-      console.error(error);
+      this.showError(`Train failed: ${error.message}`);
     } finally {
       this.isTraining = false;
     }
@@ -105,84 +100,79 @@ class MNISTApp {
 
   async onEvaluate() {
     if (!this.model) {
-      this.showError('Сначала обучите или загрузите модель');
+      this.showError('Train or load model first');
       return;
     }
     if (!this.testData) {
-      this.showError('Сначала загрузите тестовые данные');
+      this.showError('Load test data first');
       return;
     }
     try {
-      this.showStatus('Оценка на тесте...');
+      this.showStatus('Evaluating on test set...');
       const evalOutput = await this.model.evaluate(this.testData.xs, this.testData.ys);
       const testLoss = evalOutput[0].dataSync()[0];
       const testAcc = evalOutput[1].dataSync()[0];
       this.showStatus(`Test Loss: ${testLoss.toFixed(4)}, Test Accuracy: ${(testAcc * 100).toFixed(2)}%`);
     } catch (error) {
-      this.showError(`Ошибка оценки: ${error.message}`);
+      this.showError(`Eval failed: ${error.message}`);
     }
   }
 
   async onTestFive() {
     if (!this.model || !this.testData) {
-      this.showError('Сначала загрузите модель и тестовые данные');
+      this.showError('Train or load model and test data first');
       return;
     }
     try {
-      this.showStatus('Вывод примера предсказаний...');
+      this.showStatus('Predicting 5 random test images...');
       const { batchXs, batchYs, indices } = this.dataLoader.getRandomTestBatch(this.testData.xs, this.testData.ys, 5);
 
       const preds = this.model.predict(batchXs);
       const predLabels = preds.argMax(-1);
       const trueLabels = batchYs.argMax(-1);
-
       const predArray = await predLabels.array();
       const trueArray = await trueLabels.array();
 
-      this.renderPredictionsPreview(batchXs, trueArray, predArray, indices);
+      this.renderPredictionsPreview(batchXs, trueArray, predArray);
 
       batchXs.dispose();
       batchYs.dispose();
       preds.dispose();
       predLabels.dispose();
       trueLabels.dispose();
-
     } catch (error) {
-      this.showError(`Ошибка предсказаний: ${error.message}`);
+      this.showError(`Test preview failed: ${error.message}`);
     }
   }
 
   async onSaveDownload() {
     if (!this.model) {
-      this.showError('Нет модели для сохранения');
+      this.showError('No model to save');
       return;
     }
     try {
       await this.model.save('downloads://fashion-mnist-cnn');
-      this.showStatus('Модель успешно сохранена');
+      this.showStatus('Model saved');
     } catch (error) {
-      this.showError(`Ошибка сохранения: ${error.message}`);
+      this.showError(`Save fail: ${error.message}`);
     }
   }
 
   async onLoadFromFiles() {
     const jsonFile = document.getElementById('modelJsonFile').files[0];
     const weightsFile = document.getElementById('modelWeightsFile').files[0];
-
     if (!jsonFile || !weightsFile) {
-      this.showError('Выберите model.json и weights.bin');
+      this.showError('Select model.json and weights.bin');
       return;
     }
     try {
-      this.showStatus('Загрузка модели...');
+      this.showStatus('Loading model...');
       if (this.model) this.model.dispose();
-
       this.model = await tf.loadLayersModel(tf.io.browserFiles([jsonFile, weightsFile]));
       this.updateModelInfo();
-      this.showStatus('Модель загружена');
-
+      this.showStatus('Model loaded');
     } catch (error) {
-      this.showError(`Ошибка загрузки: ${error.message}`);
+      this.showError(`Load fail: ${error.message}`);
     }
   }
 
@@ -197,17 +187,15 @@ class MNISTApp {
     this.updateDataStatus(0, 0);
     this.updateModelInfo();
     this.clearPreview();
-    this.showStatus('Сброс завершён');
+    this.showStatus('Reset done');
   }
 
   toggleVisor() {
     tfvis.visor().toggle();
   }
 
-  // CNN классификатор для 10 классов
   createCNNClassifier() {
     const model = tf.sequential();
-
     model.add(tf.layers.conv2d({
       inputShape: [28, 28, 1],
       filters: 32,
@@ -226,18 +214,16 @@ class MNISTApp {
     model.add(tf.layers.flatten());
     model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
     model.add(tf.layers.dense({ units: 10, activation: 'softmax' }));
-
     model.compile({
       optimizer: tf.train.adam(0.001),
       loss: 'categoricalCrossentropy',
       metrics: ['accuracy']
     });
-
     model.summary();
     return model;
   }
 
-  renderPredictionsPreview(images, trueLabels, predLabels, indices) {
+  renderPredictionsPreview(images, trueLabels, predLabels) {
     const container = document.getElementById('previewContainer');
     container.innerHTML = '';
     const count = images.shape[0];
@@ -265,17 +251,15 @@ class MNISTApp {
   updateModelInfo() {
     const infoEl = document.getElementById('modelInfo');
     if (!this.model) {
-      infoEl.innerHTML = '<h3>Model Info</h3><p>Нет загруженной модели</p>';
+      infoEl.innerHTML = '<h3>Model Info</h3><p>No model loaded</p>';
       return;
     }
-
     let totalParams = 0;
     this.model.layers.forEach(layer => {
       layer.getWeights().forEach(weight => {
         totalParams += weight.size;
       });
     });
-
     infoEl.innerHTML = `
       <h3>Model Info</h3>
       <p>Layers: ${this.model.layers.length}</p>
