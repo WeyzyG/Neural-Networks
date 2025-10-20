@@ -14,11 +14,15 @@ class MNISTDataLoader {
                     const lines = content.split('\n').filter(line => line.trim() !== '');
                     const labels = [];
                     const pixels = [];
+                    const originalData = []; // Сохраняем исходные данные для экспорта
+                    
                     for (const line of lines) {
                         const values = line.split(',').map(Number);
                         if (values.length !== 785) continue; // label + 784 pixels
                         labels.push(values[0]);
-                        pixels.push(values.slice(1));
+                        const pixelValues = values.slice(1);
+                        pixels.push(pixelValues);
+                        originalData.push(pixelValues); // Сохраняем исходные пиксели
                     }
                     if (labels.length === 0) {
                         reject(new Error('No valid data found in file'));
@@ -34,7 +38,46 @@ class MNISTDataLoader {
                     const ys = tf.tidy(() => {
                         return tf.oneHot(labels, 10);
                     });
-                    resolve({ xs, ys, count: labels.length, labels });
+                    resolve({ xs, ys, count: labels.length, labels, originalData });
+                } catch (error) {
+                    reject(error);
+                }
+            };
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsText(file);
+        });
+    }
+
+    // Загрузка немаркированных данных (без labels)
+    async loadUnlabeledFromFiles(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const content = event.target.result;
+                    const lines = content.split('\n').filter(line => line.trim() !== '');
+                    const pixels = [];
+                    const originalData = []; // Сохраняем исходные данные для экспорта
+                    
+                    for (const line of lines) {
+                        const values = line.split(',').map(Number);
+                        // Для немаркированных данных ожидаем 784 пикселя (без label)
+                        if (values.length === 784) {
+                            pixels.push(values);
+                            originalData.push(values);
+                        }
+                    }
+                    if (pixels.length === 0) {
+                        reject(new Error('No valid unlabeled data found in file'));
+                        return;
+                    }
+                    // Normalize pixels to [0, 1] and reshape to [N, 28, 28, 1]
+                    const xs = tf.tidy(() => {
+                        return tf.tensor2d(pixels)
+                            .div(255)
+                            .reshape([pixels.length, 28, 28, 1]);
+                    });
+                    resolve({ xs, count: pixels.length, originalData });
                 } catch (error) {
                     reject(error);
                 }

@@ -18,6 +18,8 @@ class MNISTApp {
     this.isTraining = false;
     this.trainData = null;
     this.testData = null;
+    this.unlabeledData = null;
+    this.classificationResults = null;
     this.initializeUI();
 
     // fallback: WebGL → CPU если WebGL недоступен
@@ -39,12 +41,22 @@ class MNISTApp {
     document.getElementById('loadModelBtn').addEventListener('click', () => this.onLoadFromFiles());
     document.getElementById('resetBtn').addEventListener('click', () => this.onReset());
     document.getElementById('toggleVisorBtn').addEventListener('click', () => this.toggleVisor());
+    
+    // Новые обработчики для эксплуатации модели
+    document.getElementById('loadUnlabeledBtn').addEventListener('click', () => this.onLoadUnlabeledData());
+    document.getElementById('classifyBtn').addEventListener('click', () => this.onClassify());
+    document.getElementById('exportResultsBtn').addEventListener('click', () => this.onExportResults());
   }
 
   async renderEDAforTrain() {
     if (!this.trainData) return;
     const edaDiv = document.getElementById('edaContainer');
-    edaDiv.innerHTML = "<h2>EDA analysis of training dataset</h2>";
+    if (!edaDiv) {
+      console.error('EDA container not found');
+      return;
+    }
+    
+    edaDiv.innerHTML = "<h2 style='text-align: center; color: #42567a; margin-bottom: 20px;'>Exploratory Data Analysis Results</h2>";
 
     // 1. Class distribution chart
     const labels = this.trainData.labels;
@@ -174,36 +186,42 @@ class MNISTApp {
     edaDiv.appendChild(corrBlock);
 
     setTimeout(() => {
-      const ctx1 = document.getElementById('edaClassDistributionChart').getContext('2d');
-      new Chart(ctx1, {
-        type: 'bar',
-        data: {
-          labels: FASHION_LABELS,
-          datasets: [{
-            label: 'Samples per class',
-            data: counts,
-            backgroundColor: '#007BFF',
-          }]
-        },
-        options: {responsive:false, plugins:{legend:{display:false}}}
-      });
-      const ctx2 = document.getElementById(corrChartId).getContext('2d');
-      new Chart(ctx2, {
-        type: 'bar',
-        data: {
-          labels: FASHION_LABELS,
-          datasets: [{
-            label: 'Average pixel intensity per class',
-            data: meansPerClass,
-            backgroundColor: '#a062e0'
-          }]
-        },
-        options: {
-          responsive: false,
-          plugins: {legend: {display: false}},
-          scales: { y: {min: 0, max: 1, title: {display: true, text: 'Pixel Intensity (0-1)'}} }
-        }
-      });
+      const ctx1 = document.getElementById('edaClassDistributionChart');
+      const ctx2 = document.getElementById(corrChartId);
+      
+      if (ctx1) {
+        new Chart(ctx1.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: FASHION_LABELS,
+            datasets: [{
+              label: 'Samples per class',
+              data: counts,
+              backgroundColor: '#007BFF',
+            }]
+          },
+          options: {responsive:false, plugins:{legend:{display:false}}}
+        });
+      }
+      
+      if (ctx2) {
+        new Chart(ctx2.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels: FASHION_LABELS,
+            datasets: [{
+              label: 'Average pixel intensity per class',
+              data: meansPerClass,
+              backgroundColor: '#a062e0'
+            }]
+          },
+          options: {
+            responsive: false,
+            plugins: {legend: {display: false}},
+            scales: { y: {min: 0, max: 1, title: {display: true, text: 'Pixel Intensity (0-1)'}} }
+          }
+        });
+      }
     }, 0);
 
     // --- 5. Data description ---
@@ -252,6 +270,175 @@ class MNISTApp {
       await this.renderEDAforTrain();
     } catch (error) {
       this.showError(`Load error: ${error.message}`);
+    }
+  }
+
+  async onLoadUnlabeledData() {
+    try {
+      const unlabeledFile = document.getElementById('unlabeledFile').files[0];
+      if (!unlabeledFile) {
+        this.showError('Please select unlabeled CSV file');
+        return;
+      }
+      this.showStatus('Loading unlabeled data...');
+      
+      // Используем существующий метод загрузки, но без labels
+      const unlabeledData = await this.dataLoader.loadUnlabeledFromFiles(unlabeledFile);
+      this.unlabeledData = unlabeledData;
+      
+      this.showStatus('Unlabeled data loaded successfully.');
+      this.showStatus(`Unlabeled data shape: ${unlabeledData.xs.shape}`);
+      
+      // Показываем превью немаркированных данных
+      await this.renderUnlabeledPreview();
+      
+      // Обновляем статус в блоке эксплуатации
+      this.updateClassificationStatus(`Unlabeled data loaded: ${unlabeledData.count} samples`);
+      
+    } catch (error) {
+      this.showError(`Unlabeled data load error: ${error.message}`);
+    }
+  }
+
+  async onClassify() {
+    if (!this.model) {
+      this.showError('Please load or train a model first.');
+      return;
+    }
+    if (!this.unlabeledData) {
+      this.showError('Please load unlabeled data first.');
+      return;
+    }
+    try {
+      this.showStatus('Classifying unlabeled data...');
+      
+      const predictions = this.model.predict(this.unlabeledData.xs);
+      const predictedLabels = predictions.argMax(-1);
+      const predictedArray = await predictedLabels.array();
+      
+      // Сохраняем результаты классификации
+      this.classificationResults = {
+        predictions: predictedArray,
+        data: this.unlabeledData.originalData // сохраняем исходные данные
+      };
+      
+      this.showStatus(`Classification completed. Predicted ${predictedArray.length} samples.`);
+      
+      // Показываем результаты классификации
+      await this.renderClassificationResults(predictedArray);
+      
+      // Обновляем статус
+      this.updateClassificationStatus(`Classification completed: ${predictedArray.length} samples classified`);
+      
+      // Очистка памяти
+      predictions.dispose();
+      predictedLabels.dispose();
+      
+    } catch (error) {
+      this.showError(`Classification failed: ${error.message}`);
+    }
+  }
+
+  async onExportResults() {
+    if (!this.classificationResults) {
+      this.showError('No classification results to export.');
+      return;
+    }
+    try {
+      this.showStatus('Exporting classification results...');
+      
+      const { predictions, data } = this.classificationResults;
+      let csvContent = '';
+      
+      // Добавляем заголовок с названиями классов
+      const header = 'predicted_class,predicted_label,' + Array.from({length: 784}, (_, i) => `pixel${i}`).join(',');
+      csvContent += header + '\n';
+      
+      // Добавляем данные с предсказаниями
+      for (let i = 0; i < predictions.length; i++) {
+        const predictedClass = predictions[i];
+        const predictedLabel = FASHION_LABELS[predictedClass];
+        const pixels = data[i].join(',');
+        csvContent += `${predictedClass},${predictedLabel},${pixels}\n`;
+      }
+      
+      // Создаем и скачиваем файл
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', 'classification_results.csv');
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      this.showStatus('Classification results exported successfully.');
+      this.updateClassificationStatus('Results exported to classification_results.csv');
+      
+    } catch (error) {
+      this.showError(`Export failed: ${error.message}`);
+    }
+  }
+
+  async renderUnlabeledPreview() {
+    const container = document.getElementById('unlabeledPreviewContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const count = Math.min(this.unlabeledData.xs.shape[0], 10); // Показываем максимум 10 изображений
+    
+    for (let i = 0; i < count; i++) {
+      const div = document.createElement('div');
+      div.style.textAlign = 'center';
+      
+      const canvas = await this.createCanvasFromTensor(
+        this.unlabeledData.xs.slice([i, 0, 0, 0], [1, 28, 28, 1])
+      );
+      canvas.style.width = '60px';
+      canvas.style.height = '60px';
+      
+      const label = document.createElement('div');
+      label.textContent = `Sample ${i + 1}`;
+      label.style.fontSize = '0.8rem';
+      label.style.marginTop = '5px';
+      label.style.color = '#666';
+      
+      div.appendChild(canvas);
+      div.appendChild(label);
+      container.appendChild(div);
+    }
+  }
+
+  async renderClassificationResults(predictions) {
+    const container = document.getElementById('unlabeledPreviewContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const count = Math.min(predictions.length, 10); // Показываем максимум 10 изображений
+    
+    for (let i = 0; i < count; i++) {
+      const div = document.createElement('div');
+      div.style.textAlign = 'center';
+      
+      const canvas = await this.createCanvasFromTensor(
+        this.unlabeledData.xs.slice([i, 0, 0, 0], [1, 28, 28, 1])
+      );
+      canvas.style.width = '60px';
+      canvas.style.height = '60px';
+      
+      const label = document.createElement('div');
+      const predictedClass = predictions[i];
+      const predictedLabel = FASHION_LABELS[predictedClass];
+      label.textContent = predictedLabel;
+      label.style.fontSize = '0.8rem';
+      label.style.marginTop = '5px';
+      label.style.fontWeight = 'bold';
+      label.style.color = '#4064eb';
+      
+      div.appendChild(canvas);
+      div.appendChild(label);
+      container.appendChild(div);
     }
   }
 
@@ -380,9 +567,13 @@ class MNISTApp {
     this.dataLoader.dispose();
     this.trainData = null;
     this.testData = null;
+    this.unlabeledData = null;
+    this.classificationResults = null;
     this.updateDataStatus(0, 0);
     this.updateModelInfo();
+    this.updateClassificationStatus('No classification performed yet');
     this.clearPreview();
+    this.clearUnlabeledPreview();
     this.showStatus('Reset completed.');
   }
 
@@ -459,6 +650,8 @@ class MNISTApp {
 
   updateModelInfo() {
     const infoEl = document.getElementById('modelInfo');
+    if (!infoEl) return;
+    
     if (!this.model) {
       infoEl.innerHTML = '<h3>Model Info</h3><p>No model loaded.</p>';
       return;
@@ -478,13 +671,24 @@ class MNISTApp {
 
   updateDataStatus(trainCount, testCount) {
     const el = document.getElementById('dataStatus');
+    if (!el) return;
+    
     el.innerHTML = `<h3>Data Status</h3>
       <p>Training samples: ${trainCount}</p>
       <p>Test samples: ${testCount}</p>`;
   }
 
+  updateClassificationStatus(message) {
+    const el = document.getElementById('classificationResults');
+    if (!el) return;
+    
+    el.innerHTML = `<h3>Classification Results</h3><p>${message}</p>`;
+  }
+
   showStatus(message) {
     const logs = document.getElementById('trainingLogs');
+    if (!logs) return;
+    
     const entry = document.createElement('div');
     entry.textContent = `[info] ${message}`;
     logs.appendChild(entry);
@@ -493,6 +697,8 @@ class MNISTApp {
 
   showError(message) {
     const logs = document.getElementById('trainingLogs');
+    if (!logs) return;
+    
     const entry = document.createElement('div');
     entry.style.color = 'red';
     entry.textContent = `[error] ${message}`;
@@ -503,7 +709,12 @@ class MNISTApp {
 
   clearPreview() {
     const container = document.getElementById('previewContainer');
-    container.innerHTML = '';
+    if (container) container.innerHTML = '';
+  }
+
+  clearUnlabeledPreview() {
+    const container = document.getElementById('unlabeledPreviewContainer');
+    if (container) container.innerHTML = '';
   }
 }
 
