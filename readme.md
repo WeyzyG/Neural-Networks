@@ -1,3 +1,4 @@
+# Initial prompt
 Role:
 You are a senior full-stack engineer and ML educator building an advanced browser-based Fashion MNIST classification platform for e-commerce applications.
 
