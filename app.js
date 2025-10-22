@@ -228,7 +228,167 @@ class MNISTApp {
     }
   }
 
-  // Остальные методы остаются без изменений...
+  async onEvaluate() {
+    if (!this.model) {
+      this.showError('Train or load a model first.');
+      return;
+    }
+    
+    // ПРОВЕРЯЕМ, СКОМПИЛИРОВАНА ЛИ МОДЕЛЬ
+    if (!this.model.optimizer) {
+      this.showStatus('Model not compiled, compiling now...');
+      this.model.compile({
+        optimizer: this.useCPU ? tf.train.adam(0.001) : tf.train.sgd(0.01),
+        loss: 'categoricalCrossentropy',
+        metrics: ['accuracy']
+      });
+      this.showStatus('✅ Model compiled successfully.');
+    }
+    
+    if (!this.testData) {
+      this.showError('Load test data first.');
+      return;
+    }
+    
+    try {
+      this.showStatus('Evaluating model on test set...');
+      
+      const testXs = this.testData.xs;
+      const testYs = this.testData.ys;
+      
+      // Проверяем, что данные существуют и имеют правильную форму
+      if (!testXs || !testYs) {
+        throw new Error('Test data is not properly loaded');
+      }
+      
+      // Для больших наборов данных разбиваем оценку на батчи
+      const batchSize = 32;
+      const numBatches = Math.ceil(testXs.shape[0] / batchSize);
+      
+      let totalLoss = 0;
+      let totalAccuracy = 0;
+      let processedSamples = 0;
+      
+      for (let i = 0; i < numBatches; i++) {
+        const start = i * batchSize;
+        const end = Math.min(start + batchSize, testXs.shape[0]);
+        const batchSizeActual = end - start;
+        
+        const batchXs = testXs.slice([start, 0, 0, 0], [batchSizeActual, 28, 28, 1]);
+        const batchYs = testYs.slice([start, 0], [batchSizeActual, 10]);
+        
+        const evalOutput = await this.model.evaluate(batchXs, batchYs);
+        const batchLoss = evalOutput[0].dataSync()[0];
+        const batchAccuracy = evalOutput[1].dataSync()[0];
+        
+        totalLoss += batchLoss * batchSizeActual;
+        totalAccuracy += batchAccuracy * batchSizeActual;
+        processedSamples += batchSizeActual;
+        
+        // Очищаем память после каждого батча
+        batchXs.dispose();
+        batchYs.dispose();
+        evalOutput[0].dispose();
+        evalOutput[1].dispose();
+        
+        // Даем браузеру "подышать" каждые 5 батчей
+        if (i % 5 === 0) {
+          await tf.nextFrame();
+        }
+      }
+      
+      const testLoss = totalLoss / processedSamples;
+      const testAcc = (totalAccuracy / processedSamples) * 100;
+      
+      this.showStatus(`🎯 Test Set Evaluation:`);
+      this.showStatus(`📉 Loss: ${testLoss.toFixed(4)}`);
+      this.showStatus(`📈 Accuracy: ${testAcc.toFixed(2)}%`);
+      
+      // Обновляем блок с метриками производительности
+      this.updatePerformanceMetrics(testAcc, testLoss);
+      
+    } catch (error) {
+      this.showError(`Evaluation failed: ${error.message}`);
+      
+      // Пробуем альтернативный метод оценки если основной не сработал
+      if (error.message.includes('WebGL') || error.message.includes('memory')) {
+        this.showStatus('🔄 Trying alternative evaluation method...');
+        await this.alternativeEvaluate();
+      }
+    }
+  }
+
+  // Альтернативный метод оценки для случаев, когда основной не работает
+  async alternativeEvaluate() {
+    try {
+      // ПРОВЕРЯЕМ КОМПИЛЯЦИЮ И В АЛЬТЕРНАТИВНОМ МЕТОДЕ
+      if (!this.model.optimizer) {
+        this.showStatus('Model not compiled, compiling for alternative evaluation...');
+        this.model.compile({
+          optimizer: this.useCPU ? tf.train.adam(0.001) : tf.train.sgd(0.01),
+          loss: 'categoricalCrossentropy',
+          metrics: ['accuracy']
+        });
+      }
+      
+      const testXs = this.testData.xs;
+      const testYs = this.testData.ys;
+      
+      // Используем предсказания и ручной расчет точности
+      const predictions = this.model.predict(testXs);
+      const predLabels = predictions.argMax(-1);
+      const trueLabels = testYs.argMax(-1);
+      
+      const predArray = await predLabels.array();
+      const trueArray = await trueLabels.array();
+      
+      let correct = 0;
+      for (let i = 0; i < predArray.length; i++) {
+        if (predArray[i] === trueArray[i]) correct++;
+      }
+      
+      const testAcc = (correct / predArray.length) * 100;
+      
+      // Для loss используем упрощенный расчет
+      const testLoss = 0; // Временное значение, так как расчет loss сложнее
+      
+      this.showStatus(`🎯 Test Set Evaluation (alternative method):`);
+      this.showStatus(`📈 Accuracy: ${testAcc.toFixed(2)}% (${correct}/${predArray.length} correct)`);
+      this.showStatus(`📉 Loss: Not calculated in alternative mode`);
+      
+      // Обновляем блок с метриками производительности
+      this.updatePerformanceMetrics(testAcc, testLoss);
+      
+      // Очищаем память
+      predictions.dispose();
+      predLabels.dispose();
+      trueLabels.dispose();
+      
+    } catch (error) {
+      this.showError(`Alternative evaluation also failed: ${error.message}`);
+    }
+  }
+
+  updatePerformanceMetrics(accuracy, loss) {
+    const performanceEl = document.querySelector('.status:nth-child(2)');
+    if (performanceEl) {
+      let rating = '🟢 Excellent';
+      if (accuracy < 70) rating = '🔴 Poor';
+      else if (accuracy < 85) rating = '🟡 Good';
+      else if (accuracy < 92) rating = '🟢 Very Good';
+      
+      const lossInfo = loss > 0 ? `<p><strong>Test Loss:</strong> ${loss.toFixed(4)}</p>` : '<p><strong>Test Loss:</strong> Not calculated</p>';
+      
+      performanceEl.innerHTML = `
+        <h3>📈 Performance Metrics</h3>
+        <p><strong>Test Accuracy:</strong> ${accuracy.toFixed(2)}%</p>
+        ${lossInfo}
+        <p><strong>Rating:</strong> ${rating}</p>
+        <p><strong>Model Status:</strong> ✅ Ready for deployment</p>
+      `;
+    }
+  }
+
   async renderEDAforTrain() {
     if (!this.trainData) return;
     const edaDiv = document.getElementById('edaContainer');
@@ -650,51 +810,6 @@ class MNISTApp {
     }
   }
 
-  async onEvaluate() {
-    if (!this.model) {
-      this.showError('Train or load a model first.');
-      return;
-    }
-    if (!this.testData) {
-      this.showError('Load test data first.');
-      return;
-    }
-    try {
-      this.showStatus('Evaluating model on test set...');
-      const evalOutput = await this.model.evaluate(this.testData.xs, this.testData.ys);
-      const testLoss = evalOutput[0].dataSync()[0];
-      const testAcc = evalOutput[1].dataSync()[0] * 100;
-      
-      this.showStatus(`🎯 Test Set Evaluation:`);
-      this.showStatus(`📉 Loss: ${testLoss.toFixed(4)}`);
-      this.showStatus(`📈 Accuracy: ${testAcc.toFixed(2)}%`);
-      
-      // Обновляем блок с метриками производительности
-      this.updatePerformanceMetrics(testAcc, testLoss);
-      
-    } catch (error) {
-      this.showError(`Evaluation failed: ${error.message}`);
-    }
-  }
-
-  updatePerformanceMetrics(accuracy, loss) {
-    const performanceEl = document.querySelector('.status:nth-child(2)');
-    if (performanceEl) {
-      let rating = '🟢 Excellent';
-      if (accuracy < 70) rating = '🔴 Poor';
-      else if (accuracy < 85) rating = '🟡 Good';
-      else if (accuracy < 92) rating = '🟢 Very Good';
-      
-      performanceEl.innerHTML = `
-        <h3>📈 Performance Metrics</h3>
-        <p><strong>Test Accuracy:</strong> ${accuracy.toFixed(2)}%</p>
-        <p><strong>Test Loss:</strong> ${loss.toFixed(4)}</p>
-        <p><strong>Rating:</strong> ${rating}</p>
-        <p><strong>Model Status:</strong> ✅ Ready for deployment</p>
-      `;
-    }
-  }
-
   async onTestFive() {
     if (!this.model || !this.testData) {
       this.showError('Please load a model and test data first.');
@@ -753,8 +868,17 @@ class MNISTApp {
       this.showStatus('Loading model from files...');
       if (this.model) this.model.dispose();
       this.model = await tf.loadLayersModel(tf.io.browserFiles([jsonFile, weightsFile]));
+      
+      // КОМПИЛИРУЕМ МОДЕЛЬ ПОСЛЕ ЗАГРУЗКИ
+      this.showStatus('Compiling loaded model...');
+      this.model.compile({
+        optimizer: this.useCPU ? tf.train.adam(0.001) : tf.train.sgd(0.01),
+        loss: 'categoricalCrossentropy',
+        metrics: ['accuracy']
+      });
+      
       this.updateModelInfo();
-      this.showStatus('✅ Model loaded successfully.');
+      this.showStatus('✅ Model loaded and compiled successfully.');
       
       // Автоматически оцениваем загруженную модель
       if (this.testData) {
